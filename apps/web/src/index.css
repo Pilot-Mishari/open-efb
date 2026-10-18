@@ -1,0 +1,86 @@
+@import "tailwindcss";
+@import "@fontsource/barlow/latin-400.css";
+@import "@fontsource/barlow/latin-500.css";
+@import "@fontsource/barlow/latin-600.css";
+@import "@fontsource/barlow-semi-condensed/latin-500.css";
+@import "@fontsource/barlow-semi-condensed/latin-600.css";
+
+@theme {
+  --font-sans: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-instrument: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+
+  --color-ink: var(--efb-ink);
+  --color-panel: var(--efb-panel);
+  --color-panel-hi: var(--efb-panel-hi);
+  --color-line: var(--efb-line);
+  --color-text: var(--efb-text);
+  --color-muted: var(--efb-muted);
+  --color-teal: var(--efb-teal);
+  --color-teal-deep: var(--efb-teal-deep);
+  --color-on-teal: var(--efb-on-teal);
+  --color-amber: var(--efb-amber);
+  --color-alert: var(--efb-alert);
+}
+
+:root,
+[data-theme="dark"] {
+  --efb-ink: #08171b;
+  --efb-panel: #0e2328;
+  --efb-panel-hi: #143038;
+  --efb-line: #1f3f47;
+  --efb-text: #e4efee;
+  --efb-muted: #8aa7a8;
+  --efb-teal: #2cc4b2;
+  --efb-teal-deep: #0f7a6f;
+  --efb-on-teal: #04211d;
+  --efb-amber: #e3a93b;
+  --efb-alert: #ec7a70;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --efb-ink: #eef4f3;
+  --efb-panel: #ffffff;
+  --efb-panel-hi: #e2eeed;
+  --efb-line: #c3d6d6;
+  --efb-text: #0c2226;
+  --efb-muted: #4f6e70;
+  --efb-teal: #0f8f82;
+  --efb-teal-deep: #0b6f65;
+  --efb-on-teal: #ffffff;
+  --efb-amber: #9a6a0b;
+  --efb-alert: #b4382e;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--efb-ink);
+  color: var(--efb-text);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.num {
+  font-family: var(--font-instrument);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 3px solid var(--efb-teal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

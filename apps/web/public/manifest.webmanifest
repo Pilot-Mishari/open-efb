@@ -1,0 +1,9 @@
+{
+  "name": "Open EFB",
+  "short_name": "Open EFB",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#08171B",
+  "theme_color": "#08171B"
+}
