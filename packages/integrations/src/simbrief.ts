@@ -127,6 +127,41 @@ export function normalizeSimbriefOfp(raw: unknown, now: number = Date.now()): Fl
   };
 }
 
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+const MAX_OFP_CHARS = 1_000_000;
+
+export function htmlToText(html: string): string {
+  return html
+    .replace(/\r\n?/g, "\n")
+    .replace(/<(script|style)[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|h[1-6]|li|pre|table)\s*>/gi, "\n")
+    .replace(/<\/t[dh]\s*>/gi, "  ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+      if (e[0] === "#") {
+        const code = e[1]?.toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+        return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+      }
+      return ENTITIES[e.toLowerCase()] ?? m;
+    })
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+export function extractOfpText(raw: unknown): string | null {
+  const html = rec(rec(raw).text).plan_html;
+  if (typeof html !== "string") return null;
+  const text = htmlToText(html.slice(0, MAX_OFP_CHARS * 2)).slice(0, MAX_OFP_CHARS);
+  return text === "" ? null : text;
+}
+
+export interface LatestOfp {
+  plan: FlightPlan;
+  text: string | null;
+}
+
 export interface FetchOptions {
   fetch?: typeof fetch;
   now?: () => number;
@@ -134,7 +169,7 @@ export interface FetchOptions {
 }
 
 /** Fetches and normalizes the user's most recent OFP. Throws SimbriefError. */
-export async function fetchLatestOfp(user: string, opts: FetchOptions = {}): Promise<FlightPlan> {
+export async function fetchLatestOfp(user: string, opts: FetchOptions = {}): Promise<LatestOfp> {
   const f = opts.fetch ?? fetch;
   let res: Response;
   let text: string;
@@ -157,5 +192,5 @@ export async function fetchLatestOfp(user: string, opts: FetchOptions = {}): Pro
     throw new SimbriefError(/unknown|not found|invalid/i.test(detail) ? "user_not_found" : "upstream", detail);
   }
   if (json === null) throw new SimbriefError("upstream", "SimBrief returned an unreadable response");
-  return normalizeSimbriefOfp(json, (opts.now ?? Date.now)());
+    return { plan: normalizeSimbriefOfp(json, (opts.now ?? Date.now)()), text: extractOfpText(json) };
 }

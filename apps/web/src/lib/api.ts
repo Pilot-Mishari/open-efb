@@ -1,6 +1,6 @@
 import {
-  FlightPlanResponseSchema, HealthSchema, SettingsSchema, VatsimAirportSchema,
-  type FlightPlanResponse, type Health, type Settings, type SettingsPatch, type VatsimAirport,
+  FlightPlanResponseSchema, HealthSchema, OfpTextResponseSchema, SettingsSchema, VatsimAirportSchema,
+  type FlightPlanResponse, type Health, type OfpTextResponse, type Settings, type SettingsPatch, type VatsimAirport,
 } from "@open-efb/shared";
 
 /** Error carrying the server's machine-readable code, e.g. "simbrief_user_not_found". */
@@ -32,6 +32,7 @@ export const api = {
     ),
   simbrief: (refresh = false): Promise<FlightPlanResponse> =>
     fetch(`/api/simbrief/latest${refresh ? "?refresh=1" : ""}`).then((r) => json(r, (v) => FlightPlanResponseSchema.parse(v))),
+    ofpText: (): Promise<OfpTextResponse> => fetch("/api/simbrief/ofp").then((r) => json(r, (v) => OfpTextResponseSchema.parse(v))),
   vatsimAirport: (icao: string): Promise<VatsimAirport> =>
     fetch(`/api/vatsim/airport/${encodeURIComponent(icao)}`).then((r) => json(r, (v) => VatsimAirportSchema.parse(v))),
 };

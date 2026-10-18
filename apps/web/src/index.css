@@ -24,32 +24,32 @@
 
 :root,
 [data-theme="dark"] {
-  --efb-ink: #08171b;
-  --efb-panel: #0e2328;
-  --efb-panel-hi: #143038;
-  --efb-line: #1f3f47;
-  --efb-text: #e4efee;
-  --efb-muted: #8aa7a8;
-  --efb-teal: #2cc4b2;
-  --efb-teal-deep: #0f7a6f;
-  --efb-on-teal: #04211d;
-  --efb-amber: #e3a93b;
-  --efb-alert: #ec7a70;
+  --efb-ink: #0d1c42;
+  --efb-panel: #14275a;
+  --efb-panel-hi: #1d3877;
+  --efb-line: #33508f;
+  --efb-text: #fcf1d0;
+  --efb-muted: #b4b3a6;
+  --efb-teal: #fcf1d0;
+  --efb-teal-deep: #e6d9b0;
+  --efb-on-teal: #0d1c42;
+  --efb-amber: #f0b84a;
+  --efb-alert: #ff9a8b;
   color-scheme: dark;
 }
 
 [data-theme="light"] {
-  --efb-ink: #eef4f3;
-  --efb-panel: #ffffff;
-  --efb-panel-hi: #e2eeed;
-  --efb-line: #c3d6d6;
-  --efb-text: #0c2226;
-  --efb-muted: #4f6e70;
-  --efb-teal: #0f8f82;
-  --efb-teal-deep: #0b6f65;
-  --efb-on-teal: #ffffff;
-  --efb-amber: #9a6a0b;
-  --efb-alert: #b4382e;
+  --efb-ink: #fcf1d0;
+  --efb-panel: #fff8e1;
+  --efb-panel-hi: #f4e7b8;
+  --efb-line: #d3c185;
+  --efb-text: #0d1c42;
+  --efb-muted: #4a5370;
+  --efb-teal: #0d1c42;
+  --efb-teal-deep: #1d3877;
+  --efb-on-teal: #fcf1d0;
+  --efb-amber: #8a5a00;
+  --efb-alert: #a32d1f;
   color-scheme: light;
 }
 

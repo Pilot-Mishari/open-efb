@@ -18,6 +18,18 @@ afterEach(() => {
 });
 
 describe("settings schema", () => {
+
+    it("a patch only contains the fields it was given", () => {
+    expect(SettingsPatchSchema.parse({ theme: "light" })).toEqual({ theme: "light" });
+    expect(SettingsPatchSchema.parse({})).toEqual({});
+    expect(SettingsPatchSchema.parse({ units: { altitude: "m" } })).toEqual({ units: { altitude: "m" } });
+  });
+  it("still validates patch values", () => {
+    expect(SettingsPatchSchema.safeParse({ port: 80 }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ units: { speed: "mph" } }).success).toBe(false);
+    expect(SettingsPatchSchema.safeParse({ units: { nope: "x" } }).success).toBe(false);
+  });
+  
   it("defaults to loopback-only, i.e. LAN access off", () => {
     expect(defaultSettings().lanAccessEnabled).toBe(false);
   });

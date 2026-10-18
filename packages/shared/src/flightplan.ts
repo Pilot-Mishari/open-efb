@@ -59,3 +59,10 @@ export type FlightPlan = z.infer<typeof FlightPlanSchema>;
 
 export const FlightPlanResponseSchema = z.object({ plan: FlightPlanSchema, stale: z.boolean() });
 export type FlightPlanResponse = z.infer<typeof FlightPlanResponseSchema>;
+
+export const OfpTextResponseSchema = z.object({
+  text: z.string().nullable(),
+  generatedAt: z.string().nullable(),
+  stale: z.boolean(),
+});
+export type OfpTextResponse = z.infer<typeof OfpTextResponseSchema>;

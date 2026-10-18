@@ -55,6 +55,21 @@ describe("settings endpoints", () => {
     expect(r.body.settings.theme).toBe("light");
     expect((await request(port, "GET", "/api/settings")).body.theme).toBe("light");
   });
+
+    it("a one-field update keeps every other setting", async () => {
+    await request(port, "PATCH", "/api/settings", { body: { simbriefUser: "pilot", chartsProvider: "navigraph", units: { altitude: "m", speed: "kmh", temperature: "F", weight: "lb" } } });
+    await request(port, "PATCH", "/api/settings", { body: { theme: "light" } });
+    await request(port, "PATCH", "/api/settings", { body: { units: { weight: "kg" } } });
+    const s = (await request(port, "GET", "/api/settings")).body;
+    expect(s).toMatchObject({ theme: "light", simbriefUser: "pilot", chartsProvider: "navigraph", units: { altitude: "m", speed: "kmh", temperature: "F", weight: "kg" } });
+  });
+  it("an empty update changes nothing, even when settings are not defaults", async () => {
+    await request(port, "PATCH", "/api/settings", { body: { theme: "light", simbriefUser: "pilot" } });
+    const before = (await request(port, "GET", "/api/settings")).body;
+    await request(port, "PATCH", "/api/settings", { body: {} });
+    expect((await request(port, "GET", "/api/settings")).body).toEqual(before);
+  });
+
   it("flags a port change as needing restart", async () => {
     const r = await request(port, "PATCH", "/api/settings", { body: { port: 5000 } });
     expect(r.body.restartRequired).toBe(true);

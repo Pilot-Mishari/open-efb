@@ -1,11 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { AirportInfo, FlightPlan } from "@open-efb/shared";
+import { OfpViewer } from "../components/OfpViewer";
 import { EmptyState, Panel, SectionLayout } from "../components/Panel";
 import { buildEmbeddedBrowserUrl } from "../lib/browser";
 import { amount, duration, utcDateTime, utcTime } from "../lib/format";
 import { MODULES } from "../lib/modules";
 import { usePlan } from "../lib/plan-context";
+
 
 const Rows = ({ rows }: { rows: [string, ReactNode][] }) => (
   <dl className="divide-y divide-line">
@@ -79,15 +81,8 @@ function Body({ plan, section }: { plan: FlightPlan; section: string }) {
         </div>
       );
     case "OFP":
-      return (
-        <Panel title="Operational flight plan">
-          {plan.pdfUrl ? (
-            <Link to={buildEmbeddedBrowserUrl(plan.pdfUrl) ?? "/"} className="inline-block rounded-lg bg-teal px-6 py-3 text-lg font-semibold text-on-teal">Open the OFP PDF in the EFB</Link>
-          ) : <EmptyState title="No PDF link in this plan" hint="SimBrief did not include a PDF for your latest plan." />}
-          <p className="mt-3 text-sm text-muted">Opens inside the EFB browser instead of in a separate tab.</p>
-        </Panel>
-      );
-    default:
+      return <OfpViewer />;
+      default:
       return (
         <div className="grid grid-cols-2 gap-4">
           <Panel title="Flight">
