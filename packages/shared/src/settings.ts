@@ -16,6 +16,10 @@ export const SettingsSchema = z.object({
   /** Telemetry broadcast rate in Hz. */
   telemetryRateHz: z.number().min(0.5).max(20).default(2),
   theme: z.enum(["dark", "light"]).default("dark"),
+    /** SimBrief username (Navigraph alias) or numeric Pilot ID. Empty = not configured. */
+  simbriefUser: z.string().trim().max(64).default(""),
+  /** Which chart service is shown first on the Charts screen. */
+  chartsProvider: z.enum(["chartfox", "navigraph"]).default("chartfox"),
   units: UnitsSchema.default(() => UnitsSchema.parse({})),
 });
 

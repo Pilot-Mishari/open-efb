@@ -4,6 +4,7 @@ import express, { type Express } from "express";
 import { SettingsPatchSchema, type Health } from "@open-efb/shared";
 import type { Logger } from "pino";
 import { hostGuard, originGuard, requireLoopback } from "./guard";
+import { integrationRoutes } from "./integration-routes";
 import type { SettingsStore } from "./settings-store";
 
 export interface AppContext {
@@ -12,6 +13,7 @@ export interface AppContext {
   settings: SettingsStore;
   logger: Logger;
   webDir?: string | undefined;
+  fetch?: typeof fetch | undefined;
 }
 
 export function createApp(ctx: AppContext): Express {
@@ -55,11 +57,13 @@ export function createApp(ctx: AppContext): Express {
     res.json({ settings: next, restartRequired: next.port !== before.port });
   });
 
+  app.use("/api", integrationRoutes({ settings: ctx.settings, logger: ctx.logger, fetch: ctx.fetch }));
+
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "not_found" });
   });
 
-  const webDir = ctx.webDir;
+  const webDir = ctx.webDir ? path.resolve(ctx.webDir) : undefined;
   if (webDir && fs.existsSync(path.join(webDir, "index.html"))) {
     app.use(express.static(webDir, { index: false, maxAge: "1h" }));
     app.use((req, res, next) => {

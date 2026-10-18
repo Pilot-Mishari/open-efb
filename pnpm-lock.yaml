@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@open-efb/integrations':
+        specifier: workspace:*
+        version: link:packages/integrations
       '@open-efb/shared':
         specifier: workspace:*
         version: link:packages/shared
@@ -57,6 +60,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@open-efb/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@open-efb/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -122,6 +128,12 @@ importers:
       vite:
         specifier: 8.3.4
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
+
+  packages/integrations:
+    dependencies:
+      '@open-efb/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/shared:
     dependencies:

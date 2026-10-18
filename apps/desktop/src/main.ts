@@ -3,6 +3,7 @@ import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, session } from "e
 import { createEfbServer } from "@open-efb/server";
 
 const isDev = !app.isPackaged;
+const EXTERNAL_HOSTS = new Set(["chartfox.org", "www.chartfox.org", "navigraph.com", "www.navigraph.com", "charts.navigraph.com", "www.simbrief.com"]);
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let serverUrl: string | null = null;

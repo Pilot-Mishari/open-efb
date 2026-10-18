@@ -15,6 +15,7 @@ export interface ServerOptions {
   /** Overrides the saved port (0 = pick a free port; used by tests). */
   port?: number;
   logToStdout?: boolean;
+  fetch?: typeof fetch;
 }
 
 export interface EfbServer {
@@ -38,6 +39,7 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
     settings,
     logger,
     webDir: opts.webDir,
+    fetch: opts.fetch,
   });
   let http: Server | null = null;
 

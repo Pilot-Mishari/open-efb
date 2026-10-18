@@ -9,7 +9,7 @@ function Tile({ m, className = "" }: { m: ModuleDef; className?: string }) {
       <div className="mt-6">
         <div className="font-instrument text-2xl font-semibold">{m.name}</div>
         <div className="mt-0.5 text-muted">{m.blurb}</div>
-        <div className="mt-3 text-sm text-muted">Layout preview, not built yet</div>
+                <div className={`mt-3 text-sm ${m.status === "live" ? "text-teal" : "text-muted"}`}>{m.status === "live" ? "Ready to use" : "Layout preview, not built yet"}</div>
       </div>
     </Link>
   );

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Settings } from "@open-efb/shared";
 import { EmptyState, Panel, SectionLayout } from "../components/Panel";
+import { describeError } from "../lib/api";
 import { useSettings } from "../lib/settings-context";
 
 function Choice<T extends string>({ label, value, options, onPick }: { label: string; value: T; options: readonly T[]; onPick: (v: T) => void }) {
@@ -17,20 +18,21 @@ function Choice<T extends string>({ label, value, options, onPick }: { label: st
   );
 }
 
-const SECTIONS = ["Display", "Network access", "About"];
+const SECTIONS = ["Display", "Integrations", "Network access", "About"];
 
 export function SettingsPage() {
   const { settings, update, server, version } = useSettings();
   const [section, setSection] = useState(SECTIONS[0]!);
   const [error, setError] = useState<string | null>(null);
+  const [simbrief, setSimbrief] = useState(settings.simbriefUser);
+  useEffect(() => setSimbrief(settings.simbriefUser), [settings.simbriefUser]);
 
   const save = async (patch: Parameters<typeof update>[0]) => {
     setError(null);
     try {
       await update(patch);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "unknown error";
-      setError(msg === "admin_local_only" ? "Settings can only be changed from the computer running Open EFB." : `Could not save: ${msg}`);
+      setError(describeError(e));
     }
   };
   const units = (k: keyof Settings["units"]) => <T extends string>(v: T) => save({ units: { ...settings.units, [k]: v } as Settings["units"] });
@@ -48,6 +50,24 @@ export function SettingsPage() {
             <Choice label="Speed" value={settings.units.speed} options={["kt", "kmh"] as const} onPick={units("speed")} />
             <Choice label="Temperature" value={settings.units.temperature} options={["C", "F"] as const} onPick={units("temperature")} />
             <Choice label="Weight" value={settings.units.weight} options={["kg", "lb"] as const} onPick={units("weight")} />
+          </Panel>
+        </>
+      )}
+      {section === "Integrations" && (
+        <>
+          <Panel title="SimBrief" note="Loads your latest flight plan">
+            <form onSubmit={(e) => { e.preventDefault(); void save({ simbriefUser: simbrief.trim() }); }} className="flex items-end gap-3">
+              <label className="block flex-1">
+                <span className="text-sm text-muted">Username or Pilot ID</span>
+                <input value={simbrief} onChange={(e) => setSimbrief(e.target.value)} maxLength={64} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="Your SimBrief username (Navigraph alias)"
+                  className="mt-1 block w-full rounded-lg border border-line bg-ink px-3 py-2.5 text-lg" />
+              </label>
+              <button type="submit" className="min-h-12 rounded-lg bg-teal px-6 text-lg font-semibold text-on-teal">Save</button>
+            </form>
+            <p className="mt-3 text-sm text-muted">A numeric value is treated as your Pilot ID. Only your most recent plan is read, and no password is needed.</p>
+          </Panel>
+          <Panel title="Charts">
+            <Choice label="Show first" value={settings.chartsProvider} options={["chartfox", "navigraph"] as const} onPick={(v) => save({ chartsProvider: v })} />
           </Panel>
         </>
       )}
