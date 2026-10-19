@@ -9,6 +9,8 @@ files:
 extraResources:
   - from: ../web/dist
     to: web
+  - from: build/icon.png
+    to: icon.png
 win:
   target:
     - target: nsis

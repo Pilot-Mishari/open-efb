@@ -6,3 +6,10 @@ export const HealthSchema = z.object({
   uptimeSeconds: z.number(),
 });
 export type Health = z.infer<typeof HealthSchema>;
+
+export const SessionSchema = z.object({
+  authenticated: z.boolean(),
+  role: z.enum(["local", "client"]).nullable(),
+  label: z.string().nullable(),
+});
+export type SessionInfo = z.infer<typeof SessionSchema>;

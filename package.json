@@ -6,7 +6,7 @@
   "description": "Open-source Electronic Flight Bag for flight simulators",
   "packageManager": "pnpm@10.34.7",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "concurrently -k -n server,web \"pnpm --filter @open-efb/server dev\" \"pnpm --filter @open-efb/web dev\"",

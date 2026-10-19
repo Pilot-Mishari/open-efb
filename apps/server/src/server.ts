@@ -1,87 +1,183 @@
-import type { Server } from "node:http";
-import path from "node:path";
+import type { IncomingMessage, Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { DatabaseSync } from "node:sqlite";
+import path from "node:path";
+import type { Duplex } from "node:stream";
+import type { AccessState } from "@open-efb/shared";
 import type { Logger } from "pino";
 import { createApp } from "./app";
+import { identify, type AuthDeps } from "./auth";
 import { openDatabase } from "./db";
+import { hostAllowed, isLoopback, lanAddresses, originAllowed } from "./guard";
+import { ClientHub } from "./hub";
 import { createLogger, type LogBuffer } from "./logger";
+import { Pairing, type PairingOptions } from "./pairing";
+import { SessionStore } from "./sessions";
 import { SettingsStore } from "./settings-store";
 
 export interface ServerOptions {
   dataDir: string;
   version?: string;
   webDir?: string;
-  /** Overrides the saved port (0 = pick a free port; used by tests). */
   port?: number;
   logToStdout?: boolean;
   fetch?: typeof fetch;
+  isLocal?: (req: IncomingMessage) => boolean;
+  pairing?: PairingOptions;
+}
+
+export interface AccessControl {
+  state(): AccessState;
+  setLan(enabled: boolean): Promise<void>;
+  rotateCode(): void;
+  revoke(id: string): void;
+  revokeAll(): void;
+  onChange(cb: () => void): () => void;
 }
 
 export interface EfbServer {
   start(): Promise<{ host: string; port: number; url: string }>;
   stop(): Promise<void>;
-  /** Stops the server and releases the database and log file. Call once on shutdown. */
   dispose(): Promise<void>;
   isRunning(): boolean;
   settings: SettingsStore;
   logger: Logger;
   logs: LogBuffer;
+  access: AccessControl;
 }
 
 export function createEfbServer(opts: ServerOptions): EfbServer {
+  const version = opts.version ?? "0.0.0";
   const { logger, buffer, close: closeLogger } = createLogger({ dataDir: opts.dataDir, toStdout: opts.logToStdout ?? true });
-  const db: DatabaseSync = openDatabase(path.resolve(opts.dataDir));
+  const db = openDatabase(path.resolve(opts.dataDir));
   const settings = new SettingsStore(db, logger);
-  const app = createApp({
-    version: opts.version ?? "0.0.0",
-    startedAt: Date.now(),
-    settings,
-    logger,
-    webDir: opts.webDir,
-    fetch: opts.fetch,
-  });
-  let http: Server | null = null;
+  const sessions = new SessionStore(db);
+  const pairing = new Pairing(opts.pairing);
+  const hub = new ClientHub(version);
+  const isLocal = opts.isLocal ?? ((req: IncomingMessage) => isLoopback(req.socket.remoteAddress));
+  const listeners = new Set<() => void>();
+  const emit = () => listeners.forEach((l) => l());
+  pairing.onChange(emit);
+  hub.onChange(emit);
 
-  const stop = async (): Promise<void> => {
-    const srv = http;
-    if (!srv) return;
-    http = null;
-    await new Promise<void>((resolve) => {
-      srv.close(() => resolve());
-      srv.closeAllConnections();
+  const auth: AuthDeps = {
+    sessions,
+    pairing,
+    isLocal,
+    changed: emit,
+    revoke: (id) => {
+      sessions.revoke(id);
+      hub.revokeSession(id);
+      emit();
+    },
+  };
+  const app = createApp({ version, startedAt: Date.now(), settings, logger, webDir: opts.webDir, fetch: opts.fetch, auth });
+
+  let srv: Server | null = null;
+  let host: string | null = null;
+  let port: number | null = null;
+  const lan = () => settings.get().lanAccessEnabled;
+
+  const upgrade = (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+    const reject = (code: string) => {
+      socket.write(`HTTP/1.1 ${code}\r\nConnection: close\r\n\r\n`);
+      socket.destroy();
+    };
+    const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+    if (pathname !== "/ws" || !hostAllowed(req.headers.host, lan()) || !originAllowed(req.headers.origin, lan())) return reject("403 Forbidden");
+    const id = identify(req, auth);
+    if (!id) return reject("401 Unauthorized");
+    hub.accept(req, socket, head, id.role === "client" ? id.session.id : null);
+  };
+
+  const bind = (listenPort: number) =>
+    new Promise<void>((resolve, reject) => {
+      const bindHost = lan() ? "0.0.0.0" : "127.0.0.1";
+      const s = app.listen(listenPort, bindHost);
+      s.on("upgrade", upgrade);
+      s.once("error", reject);
+      s.once("listening", () => {
+        s.removeListener("error", reject);
+        s.on("error", (err) => logger.error({ err }, "http server error"));
+        srv = s;
+        host = bindHost;
+        port = (s.address() as AddressInfo).port;
+        logger.info({ host, port }, "server listening");
+        resolve();
+      });
     });
+
+  const unbind = async () => {
+    const s = srv;
+    if (!s) return;
+    srv = null;
+    hub.dropAll();
+    await new Promise<void>((resolve) => {
+      s.close(() => resolve());
+      s.closeAllConnections();
+    });
+  };
+
+  const stop = async () => {
+    if (!srv) return;
+    await unbind();
+    pairing.close();
     logger.info("server stopped");
+    emit();
   };
 
   return {
-    stop,
-    async dispose() {
-      await stop();
-      db.close();
-      await closeLogger();
-    },
     settings,
     logger,
     logs: buffer,
-    isRunning: () => http !== null,
-    start() {
-      if (http) return Promise.reject(new Error("server already running"));
-      // M1 binds to loopback only. LAN hosting is added in M2 together with
-      // pairing and session authentication; until then it is never exposed.
-      const host = "127.0.0.1";
-      const port = opts.port ?? settings.get().port;
-      if (settings.get().lanAccessEnabled) logger.warn("lanAccessEnabled is set but LAN hosting is not available yet; staying on loopback");
-      return new Promise((resolve, reject) => {
-        const srv = app.listen(port, host);
-        srv.once("error", reject);
-        srv.once("listening", () => {
-          http = srv;
-          const addr = srv.address() as AddressInfo;
-          logger.info({ host, port: addr.port }, "server listening");
-          resolve({ host, port: addr.port, url: `http://localhost:${addr.port}` });
-        });
-      });
+    isRunning: () => srv !== null,
+    stop,
+    async start() {
+      if (srv) throw new Error("server already running");
+      if (lan()) pairing.open();
+      await bind(opts.port ?? settings.get().port);
+      emit();
+      return { host: host!, port: port!, url: `http://localhost:${port}` };
+    },
+    async dispose() {
+      await stop();
+      hub.dispose();
+      db.close();
+      await closeLogger();
+    },
+    access: {
+      state: () => ({
+        running: srv !== null,
+        lanEnabled: lan(),
+        host,
+        port: srv ? port : null,
+        localUrl: srv ? `http://localhost:${port}` : null,
+        lanUrls: srv && lan() ? lanAddresses().map((ip) => `http://${ip}:${port}`) : [],
+        pairing: pairing.current(),
+        clients: sessions.list().map((s) => ({ id: s.id, label: s.label, ip: s.ip, lastSeen: s.lastSeen, connected: hub.connectedSessions().has(s.id) })),
+      }),
+      async setLan(enabled) {
+        if (enabled === lan()) return;
+        settings.update({ lanAccessEnabled: enabled });
+        logger.info({ enabled }, "LAN access changed");
+        if (enabled) pairing.open();
+        else pairing.close();
+        if (srv && port !== null) {
+          const keep = port;
+          await unbind();
+          await bind(keep);
+        }
+        emit();
+      },
+      rotateCode: () => pairing.rotate(),
+      revoke: (id) => auth.revoke(id),
+      revokeAll: () => {
+        for (const id of sessions.revokeAll()) hub.revokeSession(id);
+        emit();
+      },
+      onChange(cb) {
+        listeners.add(cb);
+        return () => listeners.delete(cb);
+      },
     },
   };
 }

@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import type { Settings } from "@open-efb/shared";
 import { EmptyState, Panel, SectionLayout } from "../components/Panel";
 import { describeError } from "../lib/api";
+import { useAuth } from "../lib/auth-context";
 import { useSettings } from "../lib/settings-context";
+
+  const { role, label, logout } = useAuth();
 
 function Choice<T extends string>({ label, value, options, onPick }: { label: string; value: T; options: readonly T[]; onPick: (v: T) => void }) {
   return (
@@ -71,11 +74,16 @@ export function SettingsPage() {
           </Panel>
         </>
       )}
-      {section === "Network access" && (
-        <Panel title="Tablet connection" note="Not available yet">
-          <EmptyState title="This computer only" hint="Opening Open EFB to a tablet on your Wi-Fi needs pairing and sign-in, which come with the next milestone." />
+            {section === "Network access" && (role === "client" ? (
+        <Panel title="This device" note={label ?? ""}>
+          <p className="text-lg text-muted">This device is paired with the PC. Disconnecting means you will need a new code to use it again.</p>
+          <button onClick={() => void logout()} className="mt-4 min-h-12 rounded-lg border border-line px-6 text-lg">Disconnect this device</button>
         </Panel>
-      )}
+      ) : (
+        <Panel title="Tablet connection">
+          <EmptyState title="Managed from the tray" hint="Right-click the Open EFB tray icon and choose Connect a tablet to turn on network access, see the QR code and pairing code, and disconnect devices." />
+        </Panel>
+      ))}
       {section === "About" && (
         <Panel title="Open EFB">
           <dl className="space-y-2 text-lg">

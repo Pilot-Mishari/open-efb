@@ -2,8 +2,10 @@ import { NavLink, Outlet } from "react-router-dom";
 import { FlightHeader } from "./components/FlightHeader";
 import { Icon, type IconName } from "./lib/icons";
 import { MODULES } from "./lib/modules";
+import { useLiveLink } from "./lib/live-link";
 import { useSettings } from "./lib/settings-context";
 
+const LINK_TEXT = { connecting: "Live link starting", open: "Live link connected", reconnecting: "Live link reconnecting" } as const;
 const STATUS_TEXT = { connecting: "Reaching server", online: "Server online", offline: "Server unreachable" } as const;
 
 function RailLink({ to, icon, label, end = false }: { to: string; icon: IconName; label: string; end?: boolean }) {
@@ -25,6 +27,8 @@ function RailLink({ to, icon, label, end = false }: { to: string; icon: IconName
 
 export function Shell() {
   const { server, version } = useSettings();
+  const link = useLiveLink();
+  const linkDot = link === "open" ? "bg-teal" : "bg-amber";
   const dot = server === "online" ? "bg-teal" : server === "offline" ? "bg-alert" : "bg-amber";
 
   return (
@@ -45,10 +49,11 @@ export function Shell() {
           <RailLink to="/settings" icon="settings" label="Settings" />
           <div className="mt-2 hidden space-y-1.5 px-4 text-sm text-muted lg:block" role="status">
             <div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${dot}`} />{STATUS_TEXT[server]}</div>
+            <div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${linkDot}`} />{LINK_TEXT[link]}</div>
             <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-line" />Simulator not connected</div>
           </div>
-          <div className="mt-2 flex justify-center gap-1.5 lg:hidden" role="status" aria-label={`${STATUS_TEXT[server]}. Simulator not connected.`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${dot}`} /><span className="h-2.5 w-2.5 rounded-full bg-line" />
+          <div className="mt-2 flex justify-center gap-1.5 lg:hidden" role="status" aria-label={`${STATUS_TEXT[server]}. ${LINK_TEXT[link]}. Simulator not connected.`}>
+            <span className={`h-2.5 w-2.5 rounded-full ${dot}`} /><span className={`h-2.5 w-2.5 rounded-full ${linkDot}`} /><span className="h-2.5 w-2.5 rounded-full bg-line" />
           </div>
         </div>
       </nav>

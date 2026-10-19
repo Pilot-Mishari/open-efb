@@ -7,28 +7,48 @@ export function isLoopback(addr: string | undefined): boolean {
   return !!addr && LOOPBACK.has(addr);
 }
 
-/** Hostnames this server answers to. Anything else is refused (DNS-rebinding defence). */
+const PRIVATE = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+let cached = { at: 0, ips: [] as string[] };
+
+export function lanAddresses(now: number = Date.now()): string[] {
+  if (now - cached.at > 5000) {
+    const ips: string[] = [];
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const i of list ?? []) if (i.family === "IPv4" && !i.internal) ips.push(i.address);
+    }
+    ips.sort((a, b) => Number(PRIVATE.test(b)) - Number(PRIVATE.test(a)));
+    cached = { at: now, ips };
+  }
+  return cached.ips;
+}
+
 export function allowedHostnames(lanEnabled: boolean): Set<string> {
   const hosts = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
-  if (lanEnabled) {
-    for (const list of Object.values(os.networkInterfaces())) {
-      for (const i of list ?? []) if (i.family === "IPv4" && !i.internal) hosts.add(i.address);
-    }
-  }
+  if (lanEnabled) for (const ip of lanAddresses()) hosts.add(ip);
   return hosts;
 }
 
 function hostnameOf(hostHeader: string): string {
-  // Strip port; keep bracketed IPv6 intact.
   if (hostHeader.startsWith("[")) return hostHeader.slice(0, hostHeader.indexOf("]") + 1);
   return hostHeader.split(":")[0] ?? "";
 }
 
-/** Rejects requests whose Host header is not one of ours. */
+export function hostAllowed(hostHeader: string | undefined, lanEnabled: boolean): boolean {
+  return !!hostHeader && allowedHostnames(lanEnabled).has(hostnameOf(hostHeader).toLowerCase());
+}
+
+export function originAllowed(origin: string | undefined, lanEnabled: boolean): boolean {
+  if (!origin) return true;
+  try {
+    return hostAllowed(new URL(origin).host, lanEnabled);
+  } catch {
+    return false;
+  }
+}
+
 export function hostGuard(getLanEnabled: () => boolean) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const host = req.headers.host;
-    if (!host || !allowedHostnames(getLanEnabled()).has(hostnameOf(host).toLowerCase())) {
+    if (!hostAllowed(req.headers.host, getLanEnabled())) {
       res.status(421).json({ error: "misdirected_request" });
       return;
     }
@@ -36,29 +56,17 @@ export function hostGuard(getLanEnabled: () => boolean) {
   };
 }
 
-/** For state-changing methods: if an Origin is sent it must match our own allowed hosts. */
 export function originGuard(getLanEnabled: () => boolean) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
-    const origin = req.headers.origin;
-    if (origin) {
-      let ok = false;
-      try {
-        const host = new URL(origin).host; // includes brackets for IPv6, excludes nothing else we care about
-        ok = allowedHostnames(getLanEnabled()).has(hostnameOf(host).toLowerCase());
-      } catch {
-        ok = false;
-      }
-      if (!ok) {
-        res.status(403).json({ error: "bad_origin" });
-        return;
-      }
+    if (!originAllowed(req.headers.origin, getLanEnabled())) {
+      res.status(403).json({ error: "bad_origin" });
+      return;
     }
     next();
   };
 }
 
-/** Administrative routes are available only from the machine running the app. */
 export function requireLoopback(req: Request, res: Response, next: NextFunction): void {
   if (!isLoopback(req.socket.remoteAddress)) {
     res.status(403).json({ error: "admin_local_only" });

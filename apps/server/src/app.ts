@@ -3,7 +3,8 @@ import path from "node:path";
 import express, { type Express } from "express";
 import { SettingsPatchSchema, type Health } from "@open-efb/shared";
 import type { Logger } from "pino";
-import { hostGuard, originGuard, requireLoopback } from "./guard";
+import { authRoutes, requireAuth, requireLocal, type AuthDeps } from "./auth";
+import { hostGuard, originGuard } from "./guard";
 import { integrationRoutes } from "./integration-routes";
 import type { SettingsStore } from "./settings-store";
 
@@ -14,6 +15,7 @@ export interface AppContext {
   logger: Logger;
   webDir?: string | undefined;
   fetch?: typeof fetch | undefined;
+  auth: AuthDeps;
 }
 
 export function createApp(ctx: AppContext): Express {
@@ -40,12 +42,14 @@ export function createApp(ctx: AppContext): Express {
     res.json(body);
   });
 
+  app.use("/api", authRoutes(ctx.auth));
+  app.use("/api", requireAuth(ctx.auth));
+
   app.get("/api/settings", (_req, res) => {
     res.json(ctx.settings.get());
   });
 
-  // M1: loopback-only. M2 replaces this with an authenticated admin role.
-  app.patch("/api/settings", requireLoopback, (req, res) => {
+  app.patch("/api/settings", requireLocal(ctx.auth), (req, res) => {
     const parsed = SettingsPatchSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "invalid_settings", issues: parsed.error.issues });

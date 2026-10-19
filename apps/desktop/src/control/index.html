@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'self'" />
+<title>Open EFB</title>
+<style>
+  :root { --ink:#0d1c42; --panel:#14275a; --hi:#1d3877; --line:#33508f; --text:#fcf1d0; --muted:#b4b3a6; --amber:#f0b84a; --alert:#ff9a8b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--ink); color:var(--text); font:15px/1.4 "Segoe UI", system-ui, sans-serif; }
+  main { padding:20px; display:grid; gap:14px; }
+  header { display:flex; align-items:center; gap:12px; }
+  .logo { width:40px; height:40px; border-radius:10px; background:var(--text); color:var(--ink); display:grid; place-items:center; font-weight:700; }
+  h1 { font-size:22px; margin:0; } h2 { font-size:16px; margin:0; }
+  .muted { color:var(--muted); margin:2px 0 0; } .label { color:var(--muted); font-size:13px; margin:12px 0 2px; }
+  .pill { margin-left:auto; padding:4px 12px; border-radius:99px; border:1px solid var(--line); font-size:13px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  button { font:inherit; color:var(--text); background:transparent; border:1px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; }
+  button:hover { background:var(--hi); } button:disabled { opacity:.5; cursor:default; }
+  button.primary { background:var(--text); color:var(--ink); border-color:var(--text); font-weight:600; }
+  #lan { width:56px; height:30px; border-radius:99px; padding:3px; position:relative; flex:none; }
+  #lan span { display:block; width:22px; height:22px; border-radius:50%; background:var(--muted); transition:transform .15s; }
+  #lan[aria-checked="true"] { background:var(--text); } #lan[aria-checked="true"] span { background:var(--ink); transform:translateX(26px); }
+  .qr { display:flex; gap:18px; margin-top:14px; align-items:flex-start; flex-wrap:wrap; }
+  #qr { width:180px; height:180px; border-radius:8px; background:var(--text); }
+  .mono { font-family:Consolas, monospace; } .url { font-size:18px; word-break:break-all; margin:0; }
+  .code { font:700 44px/1 Consolas, monospace; letter-spacing:.15em; margin:2px 0; }
+  .note { color:var(--muted); font-size:13px; margin:12px 0 0; }
+  ul { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+  li { display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--ink); border-radius:8px; }
+  li .grow { flex:1; min-width:0; } li small { color:var(--muted); display:block; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--line); flex:none; } .dot.on { background:var(--text); }
+  summary { cursor:pointer; font-weight:600; } pre { margin:10px 0 0; max-height:180px; overflow:auto; font:12px/1.4 Consolas, monospace; color:var(--muted); white-space:pre-wrap; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo">E</div>
+    <div><h1>Open EFB</h1><p class="muted" id="version"></p></div>
+    <span class="pill" id="server"></span>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <div><h2>Tablet access</h2><p class="muted" id="lan-text"></p></div>
+      <button id="lan" role="switch" aria-checked="false" aria-label="Allow tablets on my network"><span></span></button>
+    </div>
+    <div id="lan-on" hidden>
+      <div class="qr">
+        <img id="qr" alt="QR code with the address to open on your tablet" />
+        <div>
+          <p class="label" style="margin-top:0">Open this address on your tablet</p>
+          <p class="url mono" id="url"></p>
+          <p class="muted" id="urls-extra"></p>
+          <p class="label">Pairing code</p>
+          <p class="code" id="code">----</p>
+          <p class="muted" id="expires"></p>
+          <button id="rotate" style="margin-top:8px">New code</button>
+        </div>
+      </div>
+      <p class="note">The tablet and this PC must be on the same Wi-Fi. Anyone on that network who has the code can connect, so switch access off when you are not using it. If Windows Firewall asks, allow Open EFB on private networks.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row"><h2>Devices</h2><button id="revoke-all">Disconnect all</button></div>
+    <ul id="devices"></ul>
+    <p class="muted" id="no-devices">No tablets paired yet.</p>
+  </section>
+
+  <section class="card"><h2>Simulator</h2><p class="muted">Not set up yet. Live flight data arrives in a later milestone.</p></section>
+  <details class="card"><summary>Diagnostic log</summary><pre id="logs"></pre></details>
+  <button class="primary" id="open">Open the EFB window</button>
+</main>
+<script src="control.js"></script>
+</body>
+</html>

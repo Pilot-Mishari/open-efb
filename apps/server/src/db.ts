@@ -2,10 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-/**
- * Opens (and migrates) the application database.
- * Uses Node's built-in SQLite so contributors need no native build tools.
- */
 export function openDatabase(dataDir: string): DatabaseSync {
   fs.mkdirSync(dataDir, { recursive: true });
   const db = new DatabaseSync(path.join(dataDir, "open-efb.sqlite"));
@@ -16,6 +12,14 @@ export function openDatabase(dataDir: string): DatabaseSync {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      label TEXT NOT NULL,
+      ip TEXT,
+      created_at INTEGER NOT NULL,
+      last_seen INTEGER NOT NULL
     );
   `);
   return db;
