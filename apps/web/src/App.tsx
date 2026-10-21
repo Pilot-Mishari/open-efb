@@ -13,6 +13,12 @@ import { NetworkPage } from "./pages/NetworkPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { CabinHomePage } from "./pages/CabinHomePage";
+import { CabinLayout } from "./pages/CabinLayout";
+import { CabinFeaturePage } from "./pages/CabinFeaturePage";
+import { CABIN_FEATURES, cabinFeaturePath } from "./lib/cabin-features";
+
+// Real CabinView feature screens go here, keyed by feature id. Anything missing falls back to the placeholder.
+const CABIN_CUSTOM: Record<string, ReactElement> = {};
 
 const CUSTOM: Record<string, ReactElement> = {
   briefing: <BriefingPage />,
@@ -27,7 +33,11 @@ export function App() {
     <Routes>
       {/* CabinView is a full-screen passenger display and sits outside the EFB shell. */}
       <Route path="/cabin" element={<CabinPage />} />
-      <Route path="/cabin/home" element={<CabinHomePage />} />
+      {/* Everything after the welcome screen shares one layout so the flight widget persists. */}
+      <Route element={<CabinLayout />}>
+        <Route path="/cabin/home" element={<CabinHomePage />} />
+        {CABIN_FEATURES.map((f) => <Route key={f.id} path={cabinFeaturePath(f.id)} element={CABIN_CUSTOM[f.id] ?? <CabinFeaturePage feature={f} />} />)}
+      </Route>
       <Route element={<Shell />}>
         <Route index element={<HomePage />} />
         {MODULES.map((m) => <Route key={m.id} path={m.path.slice(1)} element={CUSTOM[m.id] ?? <ModulePage />} />)}
