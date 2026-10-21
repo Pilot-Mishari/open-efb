@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const DEFAULT_PORT = 4780;
+export const DEFAULT_FSUIPC_PORT = 2048;
 
 const unitFields = {
   altitude: z.enum(["ft", "m"]),
@@ -16,6 +17,8 @@ const fields = {
   theme: z.enum(["dark", "light"]),
   simbriefUser: z.string().trim().max(64),
   chartsProvider: z.enum(["chartfox", "navigraph"]),
+  simulatorEnabled: z.boolean(),
+  fsuipcPort: z.number().int().min(1024).max(65535),
 };
 
 export const UnitsSchema = z.object({
@@ -33,6 +36,8 @@ export const SettingsSchema = z.object({
   simbriefUser: fields.simbriefUser.default(""),
   chartsProvider: fields.chartsProvider.default("chartfox"),
   units: UnitsSchema.default(() => UnitsSchema.parse({})),
+  simulatorEnabled: fields.simulatorEnabled.default(true),
+  fsuipcPort: fields.fsuipcPort.default(DEFAULT_FSUIPC_PORT),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

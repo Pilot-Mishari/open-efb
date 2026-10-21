@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Express } from "express";
-import { SettingsPatchSchema, type Health } from "@open-efb/shared";
+import { SettingsPatchSchema, type Health, type TelemetryMessage } from "@open-efb/shared";
 import type { Logger } from "pino";
 import { authRoutes, requireAuth, requireLocal, type AuthDeps } from "./auth";
 import { hostGuard, originGuard } from "./guard";
@@ -16,6 +16,7 @@ export interface AppContext {
   webDir?: string | undefined;
   fetch?: typeof fetch | undefined;
   auth: AuthDeps;
+  telemetry: () => TelemetryMessage;
 }
 
 export function createApp(ctx: AppContext): Express {
@@ -42,6 +43,9 @@ export function createApp(ctx: AppContext): Express {
     res.json(body);
   });
 
+  app.get("/api/telemetry", (_req, res) => {
+  res.json(ctx.telemetry());
+  });
   app.use("/api", authRoutes(ctx.auth));
   app.use("/api", requireAuth(ctx.auth));
 

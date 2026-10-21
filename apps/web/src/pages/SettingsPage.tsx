@@ -5,8 +5,6 @@ import { describeError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useSettings } from "../lib/settings-context";
 
-  const { role, label, logout } = useAuth();
-
 function Choice<T extends string>({ label, value, options, onPick }: { label: string; value: T; options: readonly T[]; onPick: (v: T) => void }) {
   return (
     <div className="flex items-center justify-between gap-6 border-b border-line py-4 last:border-b-0">
@@ -24,6 +22,7 @@ function Choice<T extends string>({ label, value, options, onPick }: { label: st
 const SECTIONS = ["Display", "Integrations", "Network access", "About"];
 
 export function SettingsPage() {
+  const { role, label, logout } = useAuth();
   const { settings, update, server, version } = useSettings();
   const [section, setSection] = useState(SECTIONS[0]!);
   const [error, setError] = useState<string | null>(null);

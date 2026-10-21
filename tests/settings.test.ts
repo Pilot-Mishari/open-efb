@@ -14,7 +14,13 @@ const dir = () => {
   return d;
 };
 afterEach(() => {
-  for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
+  for (const d of dirs.splice(0)) {
+    try {
+      fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* Windows keeps SQLite files locked until the process exits; the OS temp folder cleans them up */
+    }
+  }
 });
 
 describe("settings schema", () => {

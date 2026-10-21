@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Icon } from "../lib/icons";
 import { MODULES, type ModuleDef } from "../lib/modules";
+import { SimulatorCard } from "../components/SimulatorCard";
 
 function Tile({ m, className = "" }: { m: ModuleDef; className?: string }) {
   return (
@@ -19,6 +20,7 @@ export function HomePage() {
   const by = (id: string) => MODULES.find((m) => m.id === id)!;
   return (
     <div className="mx-auto grid max-w-6xl grid-cols-4 gap-4">
+      <SimulatorCard />
       <Link to="/cabin" className="relative col-span-2 row-span-2 flex min-h-72 flex-col justify-between overflow-hidden rounded-2xl bg-teal p-7 text-on-teal">
         <svg viewBox="0 0 400 300" className="pointer-events-none absolute -right-8 -top-4 h-72 w-96 opacity-25" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="260" cy="150" r="60" /><circle cx="260" cy="150" r="110" /><circle cx="260" cy="150" r="160" />
@@ -43,5 +45,6 @@ export function HomePage() {
         ))}
       </div>
     </div>
+    
   );
 }

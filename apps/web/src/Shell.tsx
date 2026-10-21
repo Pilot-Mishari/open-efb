@@ -4,9 +4,15 @@ import { Icon, type IconName } from "./lib/icons";
 import { MODULES } from "./lib/modules";
 import { useLiveLink } from "./lib/live-link";
 import { useSettings } from "./lib/settings-context";
+import { useSimState, type SimKind } from "./lib/sim-state";
 
 const LINK_TEXT = { connecting: "Live link starting", open: "Live link connected", reconnecting: "Live link reconnecting" } as const;
 const STATUS_TEXT = { connecting: "Reaching server", online: "Server online", offline: "Server unreachable" } as const;
+
+const SIM_DOT: Record<SimKind, string> = {
+  live: "bg-teal", mock: "bg-amber", stale: "bg-amber", "waiting-sim": "bg-amber", connecting: "bg-amber", waiting: "bg-amber",
+  disconnected: "bg-line", "no-link": "bg-line", disabled: "bg-line",
+};
 
 function RailLink({ to, icon, label, end = false }: { to: string; icon: IconName; label: string; end?: boolean }) {
   return (
@@ -28,6 +34,7 @@ function RailLink({ to, icon, label, end = false }: { to: string; icon: IconName
 export function Shell() {
   const { server, version } = useSettings();
   const link = useLiveLink();
+  const sim = useSimState();
   const linkDot = link === "open" ? "bg-teal" : "bg-amber";
   const dot = server === "online" ? "bg-teal" : server === "offline" ? "bg-alert" : "bg-amber";
 

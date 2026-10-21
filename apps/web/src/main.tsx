@@ -6,11 +6,13 @@ import { AuthGate, AuthProvider } from "./lib/auth-context";
 import { LiveLinkProvider } from "./lib/live-link";
 import { PlanProvider } from "./lib/plan-context";
 import { SettingsProvider } from "./lib/settings-context";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
       <AuthProvider>
         <AuthGate>
           <SettingsProvider>
@@ -23,5 +25,6 @@ createRoot(document.getElementById("root")!).render(
         </AuthGate>
       </AuthProvider>
     </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 );

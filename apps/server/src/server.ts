@@ -13,6 +13,7 @@ import { createLogger, type LogBuffer } from "./logger";
 import { Pairing, type PairingOptions } from "./pairing";
 import { SessionStore } from "./sessions";
 import { SettingsStore } from "./settings-store";
+import { SimulatorManager } from "./simulator";
 
 export interface ServerOptions {
   dataDir: string;
@@ -23,6 +24,7 @@ export interface ServerOptions {
   fetch?: typeof fetch;
   isLocal?: (req: IncomingMessage) => boolean;
   pairing?: PairingOptions;
+  simulator?: "fsuipc" | "mock";
 }
 
 export interface AccessControl {
@@ -70,7 +72,8 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
       emit();
     },
   };
-  const app = createApp({ version, startedAt: Date.now(), settings, logger, webDir: opts.webDir, fetch: opts.fetch, auth });
+  const sim = new SimulatorManager(settings, hub, logger, opts.simulator ?? (process.env.OPEN_EFB_SIM?.trim() === "mock" ? "mock" : "fsuipc"));
+  const app = createApp({ version, startedAt: Date.now(), settings, logger, webDir: opts.webDir, fetch: opts.fetch, auth, telemetry: () => sim.message() });
 
   let srv: Server | null = null;
   let host: string | null = null;
@@ -119,6 +122,7 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
 
   const stop = async () => {
     if (!srv) return;
+    await sim.stop();
     await unbind();
     pairing.close();
     logger.info("server stopped");
@@ -135,11 +139,13 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
       if (srv) throw new Error("server already running");
       if (lan()) pairing.open();
       await bind(opts.port ?? settings.get().port);
+      await sim.start()
       emit();
       return { host: host!, port: port!, url: `http://localhost:${port}` };
     },
     async dispose() {
       await stop();
+      await sim.dispose()
       hub.dispose();
       db.close();
       await closeLogger();

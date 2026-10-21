@@ -3,3 +3,4 @@ export * from "./api";
 export * from "./flightplan";
 export * from "./vatsim";
 export * from "./access";
+export * from "./telemetry"

@@ -14,6 +14,9 @@ importers:
       '@open-efb/shared':
         specifier: workspace:*
         version: link:packages/shared
+      '@open-efb/simulator':
+        specifier: workspace:*
+        version: link:packages/simulator
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
@@ -23,6 +26,9 @@ importers:
       '@types/node':
         specifier: 26.6.5
         version: 26.6.5
+      '@types/ws':
+        specifier: 8.18.2
+        version: 8.18.2
       concurrently:
         specifier: 10.0.6
         version: 10.0.6
@@ -35,6 +41,9 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+      ws:
+        specifier: 8.22.0
+        version: 8.22.0
 
   apps/desktop:
     dependencies:
@@ -72,6 +81,9 @@ importers:
       '@open-efb/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@open-efb/simulator':
+        specifier: workspace:*
+        version: link:../../packages/simulator
       express:
         specifier: 5.3.0
         version: 5.3.0
@@ -152,6 +164,22 @@ importers:
       zod:
         specifier: 4.6.7
         version: 4.6.7
+
+  packages/simulator:
+    dependencies:
+      '@open-efb/shared':
+        specifier: workspace:*
+        version: link:../shared
+      ws:
+        specifier: 8.22.0
+        version: 8.22.0
+    devDependencies:
+      '@types/node':
+        specifier: 26.6.5
+        version: 26.6.5
+      '@types/ws':
+        specifier: 8.18.2
+        version: 8.18.2
 
 packages:
 

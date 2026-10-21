@@ -17,9 +17,13 @@ export class ClientHub {
     private readonly version: string,
     heartbeatMs = 15_000,
   ) {
+    
     this.timer = setInterval(() => this.beat(), heartbeatMs);
     this.timer.unref();
+    
   }
+
+  greeting: (() => unknown) | null = null;
 
   accept(req: IncomingMessage, socket: Duplex, head: Buffer, sessionId: string | null): void {
     this.wss.handleUpgrade(req, socket, head, (ws) => {

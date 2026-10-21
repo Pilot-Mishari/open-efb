@@ -21,6 +21,9 @@
   "devDependencies": {
     "@open-efb/integrations": "workspace:*",
     "@open-efb/shared": "workspace:*",
+    "@open-efb/simulator": "workspace:*",
+    "@types/ws": "8.18.2",
+    "ws": "8.22.0",
     "@playwright/test": "1.64.1",
     "@types/express": "5.0.6",
     "@types/node": "26.6.5",
