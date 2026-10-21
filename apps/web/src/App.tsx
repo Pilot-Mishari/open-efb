@@ -12,6 +12,7 @@ import { ModulePage } from "./pages/ModulePage";
 import { NetworkPage } from "./pages/NetworkPage";
 import { PerformancePage } from "./pages/PerformancePage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { CabinHomePage } from "./pages/CabinHomePage";
 
 const CUSTOM: Record<string, ReactElement> = {
   briefing: <BriefingPage />,
@@ -26,6 +27,7 @@ export function App() {
     <Routes>
       {/* CabinView is a full-screen passenger display and sits outside the EFB shell. */}
       <Route path="/cabin" element={<CabinPage />} />
+      <Route path="/cabin/home" element={<CabinHomePage />} />
       <Route element={<Shell />}>
         <Route index element={<HomePage />} />
         {MODULES.map((m) => <Route key={m.id} path={m.path.slice(1)} element={CUSTOM[m.id] ?? <ModulePage />} />)}
