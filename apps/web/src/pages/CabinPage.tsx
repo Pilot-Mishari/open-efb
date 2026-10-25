@@ -4,8 +4,8 @@ import { SeatBadge } from "../components/SeatBadge";
 import { Icon } from "../lib/icons";
 import { GREETINGS } from "../lib/cabin";
 
-const HOLD_MS = 3600;
-const FADE_MS = 500;
+const HOLD_MS = 2200;
+const FADE_MS = 220;
 
 export function CabinPage() {
   const [index, setIndex] = useState(0);

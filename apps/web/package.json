@@ -12,8 +12,11 @@
     "@fontsource/barlow": "5.3.0",
     "@fontsource/barlow-semi-condensed": "5.3.0",
     "@open-efb/shared": "workspace:*",
+    "@types/leaflet": "^1.9.22",
+    "leaflet": "^1.9.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "7.18.4"
   },
   "devDependencies": {

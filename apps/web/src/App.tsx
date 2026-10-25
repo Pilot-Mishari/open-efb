@@ -15,10 +15,15 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { CabinHomePage } from "./pages/CabinHomePage";
 import { CabinLayout } from "./pages/CabinLayout";
 import { CabinFeaturePage } from "./pages/CabinFeaturePage";
+import { CabinATCPage } from "./pages/CabinATCPage";
+import CabinMapPage from "./pages/CabinMapPage";
 import { CABIN_FEATURES, cabinFeaturePath } from "./lib/cabin-features";
 
 // Real CabinView feature screens go here, keyed by feature id. Anything missing falls back to the placeholder.
-const CABIN_CUSTOM: Record<string, ReactElement> = {};
+const CABIN_CUSTOM: Record<string, ReactElement> = {
+  map: <CabinMapPage />,
+  atc: <CabinATCPage />,
+};
 
 const CUSTOM: Record<string, ReactElement> = {
   briefing: <BriefingPage />,
@@ -36,6 +41,7 @@ export function App() {
       {/* Everything after the welcome screen shares one layout so the flight widget persists. */}
       <Route element={<CabinLayout />}>
         <Route path="/cabin/home" element={<CabinHomePage />} />
+        <Route path="/cabin/browser" element={<BrowserPage />} />
         {CABIN_FEATURES.map((f) => <Route key={f.id} path={cabinFeaturePath(f.id)} element={CABIN_CUSTOM[f.id] ?? <CabinFeaturePage feature={f} />} />)}
       </Route>
       <Route element={<Shell />}>

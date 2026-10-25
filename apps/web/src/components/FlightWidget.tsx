@@ -20,8 +20,8 @@ export function FlightWidget() {
   const d = deriveFlightWidget(plan, sim);
 
   return (
-    <aside aria-label="Flight status" className="flex shrink-0 items-center justify-center p-4 md:pl-0 md:pr-6">
-      <div className="w-full max-w-sm rounded-3xl border border-line bg-panel/80 p-4 backdrop-blur md:w-60">
+    <aside aria-label="Flight status" className="pointer-events-auto absolute bottom-4 right-4 z-20 flex items-end justify-end">
+      <div className="w-[min(78vw,21rem)] rounded-2xl border border-line bg-panel/85 p-2.5 shadow-[0_14px_28px_rgba(2,6,23,0.4)] backdrop-blur-md md:w-[min(48vw,22rem)] lg:w-[min(34vw,22rem)]">
         <div className="flex items-center gap-2">
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${DOT[d.tone]}`} aria-hidden="true" />
           <span role="status" className="min-w-0 flex-1 truncate text-sm text-muted">{d.status}</span>
@@ -32,18 +32,18 @@ export function FlightWidget() {
         </div>
         {!open && (
           <div className="mt-2 flex items-baseline justify-between gap-3">
-            <span className="num text-xl font-semibold">{d.flight}</span>
-            <span className="num text-lg">{d.altitude}</span>
+            <span className="num text-lg font-semibold">{d.flight}</span>
+            <span className="num text-base">{d.eta}</span>
           </div>
         )}
         {open && (
           <>
-            <dl className="mt-3 space-y-3">
+            <dl className="mt-3 grid gap-3 sm:grid-cols-3">
               <Row label="Flight" value={d.flight} />
-              <Row label="ETA" value={d.eta} />
               <Row label="Altitude" value={d.altitude} />
-              {d.groundSpeed && <Row label="Ground speed" value={d.groundSpeed} />}
+              <Row label="ETA" value={d.eta} />
             </dl>
+            {d.groundSpeed && <div className="mt-3 text-xs uppercase tracking-[0.2em] text-muted">Ground speed {d.groundSpeed}</div>}
             {d.simulated && <p className="mt-3 text-xs font-medium uppercase tracking-wider text-amber">Simulated data</p>}
           </>
         )}
