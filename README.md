@@ -4,6 +4,8 @@ A free, open-source Electronic Flight Bag for flight simulators. A lightweight W
 
 **Status: milestone M1 (foundation).** The app runs, serves the web UI, stores settings and logs. Tablet pairing (M2), live simulator telemetry (M3) and CabinView (M4) are not built yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
+**Installing or using the Windows app?** Read the [installation and user guide](docs/INSTALLATION_AND_USER_GUIDE.md).
+
 ## Requirements
 - Node.js 22.12 or newer (`.nvmrc` pins 22)
 - pnpm 10 (`corepack enable` or `npm i -g pnpm@10`)

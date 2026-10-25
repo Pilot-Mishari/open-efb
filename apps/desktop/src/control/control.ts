@@ -27,6 +27,7 @@ function render(s: ControlState): void {
   state = s;
   const a = s.access;
   $("version").textContent = `Version ${s.version}`;
+  $("sim-text").textContent = s.simulator;
   $("server").textContent = a.running ? "Server running" : "Server stopped";
   $("lan-text").textContent = a.lanEnabled ? "On. Tablets on your Wi-Fi can connect with a code." : "Off. Only this computer can use Open EFB.";
   const toggle = $<HTMLButtonElement>("lan");

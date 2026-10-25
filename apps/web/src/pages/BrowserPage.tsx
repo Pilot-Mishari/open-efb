@@ -30,7 +30,7 @@ export function BrowserPage() {
           {returnTo ? (
             <Link to={returnTo} className="rounded-lg border border-line bg-panel px-4 py-2.5 text-lg">Back to CabinView</Link>
           ) : (
-            <Link to="/" className="rounded-lg border border-line bg-panel px-4 py-2.5 text-lg">Back to dashboard</Link>
+            <Link to="/home" className="rounded-lg border border-line bg-panel px-4 py-2.5 text-lg">Back to dashboard</Link>
           )}
           <div className="text-sm text-muted">Embedded browser</div>
         </div>

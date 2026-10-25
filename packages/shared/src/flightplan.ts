@@ -13,6 +13,7 @@ export const AirportInfoSchema = z.object({
   lon: nnum,
   metar: nstr,
   taf: nstr,
+  timezone: nnum.optional(),
 });
 export type AirportInfo = z.infer<typeof AirportInfoSchema>;
 

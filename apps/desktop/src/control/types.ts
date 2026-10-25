@@ -5,6 +5,7 @@ export interface ControlState {
   access: AccessState;
   qr: string | null;
   logs: string[];
+  simulator: string;
 }
 
 export interface ControlApi {

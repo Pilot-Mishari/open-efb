@@ -49,7 +49,7 @@ export function Shell() {
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-1 overflow-y-auto">
-          <RailLink to="/" end icon="home" label="Home" />
+          <RailLink to="/home" end icon="home" label="Home" />
           {MODULES.map((m) => <RailLink key={m.id} to={m.path} icon={m.icon} label={m.name} />)}
         </div>
         <div className="mt-3 border-t border-line pt-3">

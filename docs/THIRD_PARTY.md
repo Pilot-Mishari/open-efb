@@ -10,4 +10,4 @@ Direct dependencies (see `pnpm-lock.yaml` for the full tree). Licenses should be
 | @fontsource/barlow, @fontsource/barlow-semi-condensed | self-hosted fonts | SIL OFL 1.1 (font files), MIT (package) |
 | vitest, @playwright/test, esbuild, tsx, typescript | tooling | MIT / Apache-2.0 |
 
-No third-party binaries, aircraft assets, charts or proprietary data are bundled. FSUIPC7 is **not** bundled or redistributed.
+No third-party binaries, aircraft assets, charts or proprietary data are bundled. FSUIPC7 and the FSUIPC WebSocket Server are **not** bundled or redistributed; users install them from their authors.

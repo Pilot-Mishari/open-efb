@@ -43,11 +43,12 @@ export function createApp(ctx: AppContext): Express {
     res.json(body);
   });
 
-  app.get("/api/telemetry", (_req, res) => {
-  res.json(ctx.telemetry());
-  });
   app.use("/api", authRoutes(ctx.auth));
   app.use("/api", requireAuth(ctx.auth));
+
+  app.get("/api/telemetry", (_req, res) => {
+    res.json(ctx.telemetry());
+  });
 
   app.get("/api/settings", (_req, res) => {
     res.json(ctx.settings.get());

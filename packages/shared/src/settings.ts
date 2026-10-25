@@ -19,6 +19,8 @@ const fields = {
   chartsProvider: z.enum(["chartfox", "navigraph"]),
   simulatorEnabled: z.boolean(),
   fsuipcPort: z.number().int().min(1024).max(65535),
+  autoLaunchOnSimulator: z.boolean(),
+  startWithWindows: z.boolean(),
 };
 
 export const UnitsSchema = z.object({
@@ -38,6 +40,8 @@ export const SettingsSchema = z.object({
   units: UnitsSchema.default(() => UnitsSchema.parse({})),
   simulatorEnabled: fields.simulatorEnabled.default(true),
   fsuipcPort: fields.fsuipcPort.default(DEFAULT_FSUIPC_PORT),
+  autoLaunchOnSimulator: fields.autoLaunchOnSimulator.default(true),
+  startWithWindows: fields.startWithWindows.default(false),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

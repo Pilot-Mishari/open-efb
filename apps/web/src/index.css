@@ -5,6 +5,7 @@
 @import "@fontsource/barlow/latin-600.css";
 @import "@fontsource/barlow-semi-condensed/latin-500.css";
 @import "@fontsource/barlow-semi-condensed/latin-600.css";
+@import "@fontsource/barlow-semi-condensed/latin-200.css";
 
 @theme {
   --font-sans: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;

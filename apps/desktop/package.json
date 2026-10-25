@@ -1,5 +1,6 @@
 {
   "name": "@open-efb/desktop",
+  "productName": "Open EFB",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +12,7 @@
     "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
     "dev": "node scripts/bundle.mjs && electron .",
     "typecheck": "tsc -p tsconfig.json",
-    "package:win": "electron-builder --win --x64 --config electron-builder.yml"
+    "package:win": "electron-builder --win --x64 --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "@open-efb/server": "workspace:*",

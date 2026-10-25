@@ -28,7 +28,7 @@ export function CabinPage() {
   return (
     <div className="relative flex h-full flex-col items-center justify-center overflow-hidden px-12 text-center"
       style={{ background: "radial-gradient(ellipse at 50% 40%, var(--efb-panel-hi) 0%, var(--efb-panel) 45%, var(--efb-ink) 100%)" }}>
-      <Link to="/" className="absolute left-8 top-8 rounded-lg px-4 py-3 text-lg text-muted hover:text-text">Exit to EFB</Link>
+      <Link to="/home" className="absolute left-8 top-8 rounded-lg px-4 py-3 text-lg text-muted hover:text-text">Exit to EFB</Link>
       <SeatBadge />
 
       <Icon name="cabin" className="h-12 w-12 rotate-90 text-teal" />

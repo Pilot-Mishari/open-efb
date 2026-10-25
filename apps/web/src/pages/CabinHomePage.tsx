@@ -25,7 +25,7 @@ export function CabinHomePage() {
       </nav>
       <div className="mt-auto flex gap-3 pt-8">
         <Link to="/cabin" className="rounded-lg border border-line px-5 py-3 text-lg hover:bg-panel">Back to welcome</Link>
-        <Link to="/" className="rounded-lg border border-line px-5 py-3 text-lg hover:bg-panel">Exit to EFB</Link>
+        <Link to="/home" className="rounded-lg border border-line px-5 py-3 text-lg hover:bg-panel">Exit to EFB</Link>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ export function tmpDir(): string {
 export interface Res {
   status: number;
   body: any;
+  headers: http.IncomingHttpHeaders;
 }
 
 /** Raw HTTP so tests can set Host / Origin headers freely. */
@@ -28,7 +29,7 @@ export function request(port: number, method: string, urlPath: string, opts: { h
           } catch {
             /* not JSON */
           }
-          resolve({ status: res.statusCode ?? 0, body });
+          resolve({ status: res.statusCode ?? 0, body, headers: res.headers });
         });
       },
     );

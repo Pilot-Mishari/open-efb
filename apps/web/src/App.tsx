@@ -18,6 +18,7 @@ import { CabinFeaturePage } from "./pages/CabinFeaturePage";
 import { CabinATCPage } from "./pages/CabinATCPage";
 import CabinMapPage from "./pages/CabinMapPage";
 import { CABIN_FEATURES, cabinFeaturePath } from "./lib/cabin-features";
+import { LaunchPage } from "./pages/LaunchPage";
 
 // Real CabinView feature screens go here, keyed by feature id. Anything missing falls back to the placeholder.
 const CABIN_CUSTOM: Record<string, ReactElement> = {
@@ -44,8 +45,9 @@ export function App() {
         <Route path="/cabin/browser" element={<BrowserPage />} />
         {CABIN_FEATURES.map((f) => <Route key={f.id} path={cabinFeaturePath(f.id)} element={CABIN_CUSTOM[f.id] ?? <CabinFeaturePage feature={f} />} />)}
       </Route>
+      <Route index element={<LaunchPage />} />
       <Route element={<Shell />}>
-        <Route index element={<HomePage />} />
+        <Route path="home" element={<HomePage />} />
         {MODULES.map((m) => <Route key={m.id} path={m.path.slice(1)} element={CUSTOM[m.id] ?? <ModulePage />} />)}
         <Route path="browser" element={<BrowserPage />} />
         <Route path="settings" element={<SettingsPage />} />

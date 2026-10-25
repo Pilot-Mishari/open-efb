@@ -51,6 +51,7 @@ function airport(raw: unknown): AirportInfo {
     lon: num(a.pos_long),
     metar: str(a.metar),
     taf: str(a.taf),
+    timezone: num(a.timezone),
   };
 }
 

@@ -8,7 +8,7 @@ export function ModulePage() {
   const { pathname } = useLocation();
   const mod = MODULES.find((m) => m.path === pathname);
   const [active, setActive] = useState<string | null>(null);
-  if (!mod) return <Navigate to="/" replace />;
+  if (!mod) return <Navigate to="/home" replace />;
 
   const current = active && mod.sections?.includes(active) ? active : (mod.sections?.[0] ?? mod.name);
   const needsPlan = ["briefing"].includes(mod.id);

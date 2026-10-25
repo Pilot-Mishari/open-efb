@@ -68,6 +68,11 @@ export function SettingsPage() {
             </form>
             <p className="mt-3 text-sm text-muted">A numeric value is treated as your Pilot ID. Only your most recent plan is read, and no password is needed.</p>
           </Panel>
+          <Panel title="Simulator" note="Microsoft Flight Simulator 2020 and 2024">
+            <Choice label="Open the EFB when MSFS starts" value={settings.autoLaunchOnSimulator ? "on" : "off"} options={["on", "off"] as const} onPick={(v) => save({ autoLaunchOnSimulator: v === "on" })} />
+            <Choice label="Start Open EFB with Windows" value={settings.startWithWindows ? "on" : "off"} options={["on", "off"] as const} onPick={(v) => save({ startWithWindows: v === "on" })} />
+            <p className="mt-3 text-sm text-muted">Open EFB watches for the MSFS program every few seconds, so it must be running (in the tray) when you start the simulator. Starting with Windows keeps it in the tray without opening a window. Live flight data also needs FSUIPC7 and its WebSocket server. These settings can only be changed on the PC.</p>
+          </Panel>
           <Panel title="Charts">
             <Choice label="Show first" value={settings.chartsProvider} options={["chartfox", "navigraph"] as const} onPick={(v) => save({ chartsProvider: v })} />
           </Panel>
