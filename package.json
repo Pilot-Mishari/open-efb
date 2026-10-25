@@ -1,0 +1,35 @@
+{
+  "name": "open-efb",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Open-source Electronic Flight Bag for flight simulators",
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web \"pnpm --filter @open-efb/server dev\" \"pnpm --filter @open-efb/web dev\"",
+    "dev:desktop": "pnpm build:web && pnpm --filter @open-efb/desktop dev",
+    "build": "pnpm build:web && pnpm --filter @open-efb/server build && pnpm --filter @open-efb/desktop build",
+    "build:web": "pnpm --filter @open-efb/web build",
+    "package:win": "pnpm build && pnpm --filter @open-efb/desktop package:win",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@open-efb/integrations": "workspace:*",
+    "@open-efb/shared": "workspace:*",
+    "@open-efb/simulator": "workspace:*",
+    "@types/ws": "8.18.2",
+    "ws": "8.22.0",
+    "@playwright/test": "1.64.1",
+    "@types/express": "5.0.6",
+    "@types/node": "26.6.5",
+    "concurrently": "10.0.6",
+    "pino": "10.4.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}
