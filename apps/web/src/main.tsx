@@ -6,6 +6,7 @@ import { AuthGate, AuthProvider } from "./lib/auth-context";
 import { LiveLinkProvider } from "./lib/live-link";
 import { PlanProvider } from "./lib/plan-context";
 import { SettingsProvider } from "./lib/settings-context";
+import { SetupWizardProvider } from "./lib/setup-wizard-context";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./index.css";
 
@@ -16,11 +17,13 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <AuthGate>
           <SettingsProvider>
-            <PlanProvider>
-              <LiveLinkProvider>
-                <App />
-              </LiveLinkProvider>
-            </PlanProvider>
+            <SetupWizardProvider>
+              <PlanProvider>
+                <LiveLinkProvider>
+                  <App />
+                </LiveLinkProvider>
+              </PlanProvider>
+            </SetupWizardProvider>
           </SettingsProvider>
         </AuthGate>
       </AuthProvider>

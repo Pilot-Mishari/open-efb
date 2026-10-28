@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Express } from "express";
-import { SettingsPatchSchema, type Health, type TelemetryMessage } from "@open-efb/shared";
+import { SettingsPatchSchema, type GsxStatus, type Health, type TelemetryMessage } from "@open-efb/shared";
 import type { Logger } from "pino";
 import { authRoutes, requireAuth, requireLocal, type AuthDeps } from "./auth";
 import { hostGuard, originGuard } from "./guard";
 import { integrationRoutes } from "./integration-routes";
+import type { SimulatorInstall } from "./simulator-detect";
 import type { SettingsStore } from "./settings-store";
 
 export interface AppContext {
@@ -17,6 +18,11 @@ export interface AppContext {
   fetch?: typeof fetch | undefined;
   auth: AuthDeps;
   telemetry: () => TelemetryMessage;
+  gsx: () => GsxStatus;
+  /** Machine probes for GET /api/setup; undefined means "use the real local checks". */
+  detectSims?: (() => SimulatorInstall[]) | undefined;
+  detectFsuipc?: (() => boolean) | undefined;
+  probePort?: ((port: number) => Promise<boolean>) | undefined;
 }
 
 export function createApp(ctx: AppContext): Express {
@@ -50,6 +56,11 @@ export function createApp(ctx: AppContext): Express {
     res.json(ctx.telemetry());
   });
 
+  /** GSX Pro's read-only ground-service state (bare status, unlike the pushed WS message). */
+  app.get("/api/gsx", (_req, res) => {
+    res.json(ctx.gsx());
+  });
+
   app.get("/api/settings", (_req, res) => {
     res.json(ctx.settings.get());
   });
@@ -66,7 +77,16 @@ export function createApp(ctx: AppContext): Express {
     res.json({ settings: next, restartRequired: next.port !== before.port });
   });
 
-  app.use("/api", integrationRoutes({ settings: ctx.settings, logger: ctx.logger, fetch: ctx.fetch }));
+  app.use("/api", integrationRoutes({
+    settings: ctx.settings,
+    logger: ctx.logger,
+    fetch: ctx.fetch,
+    gsx: ctx.gsx,
+    telemetry: ctx.telemetry,
+    detectSims: ctx.detectSims,
+    detectFsuipc: ctx.detectFsuipc,
+    probe: ctx.probePort,
+  }));
 
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "not_found" });

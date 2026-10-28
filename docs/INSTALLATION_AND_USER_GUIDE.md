@@ -162,6 +162,21 @@ If there is no data, the app shows dashes. It never invents flight values. The t
 - **Stop safely:** right-click the tray icon > **Quit**. This stops the server and flushes the log. Closing the window only hides it.
 - **Without MSFS:** everything except live flight data works (briefing from SimBrief, charts links, VATSIM, CabinView and its map). Flight data fields show dashes.
 
+### Airport Flight Board (CabinView)
+
+**CabinView > Airport Flight Board** shows a split-flap style board with departures and arrivals for the departure and arrival airports of the loaded flight plan.
+
+Traffic comes from the **VATSIM network feed** — flights that are filed on VATSIM whose filed departure or arrival is that airport. This is network traffic, not real-world airline schedules: there are no airline schedules, gates, delays or cancellations in the feed, so the board never shows any. Statuses are the network's own:
+
+- **FILED** — the plan is filed but the pilot has not connected yet.
+- **ON GROUND** — a connected pilot who is standing still.
+- **DEPARTED** (departures) / **IN FLIGHT** (arrivals) — a connected pilot who is moving.
+- **—** — the feed reported no state for that flight; nothing is guessed.
+
+Times are the plan's own: the filed off-block time on the departures board and the filed off-block plus enroute time (the plan's arrival estimate) on the arrivals board, converted to each airport's local zone including daylight-saving changes. When an airport's zone is unknown the time is shown in UTC with a trailing `Z`, and a flight with no time shows a dash.
+
+**No API key, account or setup is needed.** The board reads the same public feed the ATC listener uses, cached on the EFB server for 30 seconds, so an open board costs at most one feed download per 30 seconds no matter how often it refreshes. If VATSIM cannot be reached the board says so and keeps showing the last snapshot it has (marked stale) — it never invents flights, times or statuses.
+
 ---
 
 ## F. Troubleshooting
@@ -285,6 +300,6 @@ Needs a Windows 10/11 PC; the simulator rows need MSFS 2020 or 2024, and live da
 
 **Existing features**
 - [ ] Tablet pairing over Wi-Fi: lock screen, code, dashboard; wrong code shows an error; disconnect works.
-- [ ] CabinView opens, map tiles load, ATC page opens VATSIM Listen in the embedded browser.
+- [ ] CabinView opens, map tiles load, ATC page opens VATSIM Listen in its own player window (VATSIM sign-in cannot be embedded; sign in once and the window is reused).
 - [ ] Chart cards open ChartFox and Navigraph in a new tab.
 - [ ] Port 4780 in use: error box, clean exit.

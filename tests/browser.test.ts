@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEmbeddedBrowserUrl, buildVatsimListenUrl, normalizeVatsimStationId } from "../apps/web/src/lib/browser";
+import { buildEmbeddedBrowserUrl, buildVatsimListenUrl, needsPlayerWindow, normalizeVatsimStationId } from "../apps/web/src/lib/browser";
 
 describe("buildEmbeddedBrowserUrl", () => {
   it("encodes external URLs for the in-app browser route", () => {
@@ -25,13 +25,37 @@ describe("VATSIM Listen URL helpers", () => {
     expect(normalizeVatsimStationId("OTHH_1_GND")).toBe("OTHH_1_GND");
   });
 
+  it("accepts the controller callsigns the VATSIM feed uses as station ids", () => {
+    expect(normalizeVatsimStationId("EDDF_TWR")).toBe("EDDF_TWR");
+    expect(normalizeVatsimStationId("eddf_gnd")).toBe("EDDF_GND");
+    expect(normalizeVatsimStationId("KJFK_APP")).toBe("KJFK_APP");
+    expect(normalizeVatsimStationId("https://listen.vatsim.net/live/LON_CTR")).toBe("LON_CTR");
+  });
+
   it("rejects non-official station IDs", () => {
     expect(normalizeVatsimStationId("example.com")).toBeNull();
     expect(normalizeVatsimStationId("KJFK")).toBeNull();
+    expect(normalizeVatsimStationId("EDDF/TRZ")).toBeNull();
+    expect(normalizeVatsimStationId("a_" + "x".repeat(40))).toBeNull();
   });
 
   it("builds the official VATSIM Listen url for a valid station", () => {
     expect(buildVatsimListenUrl("OTHH_1_GND")).toBe("https://listen.vatsim.net/live/OTHH_1_GND");
     expect(buildVatsimListenUrl("example.com")).toBeNull();
+  });
+});
+
+describe("needsPlayerWindow", () => {
+  it("gives the VATSIM Listen host its own window, because its sign-in cannot be framed", () => {
+    expect(needsPlayerWindow("https://listen.vatsim.net/live/EDDF_TWR")).toBe(true);
+    expect(needsPlayerWindow("https://listen.vatsim.net/")).toBe(true);
+  });
+
+  it("keeps every other site in the embedded iframe", () => {
+    expect(needsPlayerWindow("https://chartfox.org/EDDF/chart/12")).toBe(false);
+    expect(needsPlayerWindow("https://charts.navigraph.com/")).toBe(false);
+    // Look-alike hostnames must not be treated as the VATSIM player.
+    expect(needsPlayerWindow("https://listen.vatsim.net.evil.example/live/EDDF_TWR")).toBe(false);
+    expect(needsPlayerWindow("not a url")).toBe(false);
   });
 });

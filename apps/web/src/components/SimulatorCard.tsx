@@ -40,7 +40,7 @@ export function SimulatorCard() {
   const sim = useSimState();
   const t = sim.telemetry;
   const rows = formatValues(
-    t?.values ?? { latitudeDeg: null, longitudeDeg: null, altitudeFt: null, groundSpeedKt: null, indicatedAirspeedKt: null, headingTrueDeg: null, trackTrueDeg: null, verticalSpeedFpm: null, outsideAirTempC: null, onGround: null },
+    t?.values ?? { latitudeDeg: null, longitudeDeg: null, altitudeFt: null, groundSpeedKt: null, indicatedAirspeedKt: null, headingTrueDeg: null, trackTrueDeg: null, verticalSpeedFpm: null, outsideAirTempC: null, onGround: null, com1ActiveMhz: null, com2ActiveMhz: null },
     settings.units,
   );
   const dim = sim.kind === "stale";

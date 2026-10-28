@@ -51,6 +51,14 @@ const AIRPORT_TIMEZONES: Record<string, string> = {
   SIN: "Asia/Singapore",
 };
 
+/** "184° SW" for a heading, shared by every screen that shows one. */
+export function formatHeading(heading: number | null | undefined): string {
+  if (heading === null || heading === undefined || !Number.isFinite(heading)) return "—";
+  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const index = Math.round((((heading % 360) + 360) % 360) / 45) % directions.length;
+  return `${Math.round(heading).toLocaleString("en-US")}° ${directions[index]}`;
+}
+
 const toRadians = (deg: number) => (deg * Math.PI) / 180;
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 

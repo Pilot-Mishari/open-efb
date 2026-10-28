@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { deriveFlightWidget, NOT_AVAILABLE, type WidgetTone } from "../lib/flight-widget";
+import { boardingStatus, useGsx } from "../lib/gsx-state";
 import { usePlan } from "../lib/plan-context";
 import { useSimState } from "../lib/sim-state";
 
@@ -16,8 +17,11 @@ const Row = ({ label, value }: { label: string; value: string }) => (
 export function FlightWidget() {
   const { plan } = usePlan();
   const sim = useSimState();
+  const gsx = useGsx();
   const [open, setOpen] = useState(true);
   const d = deriveFlightWidget(plan, sim);
+  // Only true while GSX itself says boarding or deboarding is under way — never a guess.
+  const boarding = gsx.connection === "connected" ? boardingStatus(gsx.services) : null;
 
   return (
     <aside aria-label="Flight status" className="pointer-events-auto absolute bottom-4 right-4 z-20 flex items-end justify-end">
@@ -30,6 +34,11 @@ export function FlightWidget() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${open ? "" : "rotate-180"}`} aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
           </button>
         </div>
+        {boarding && (
+          <p className="mt-2 rounded-lg bg-teal/15 px-2.5 py-1.5 text-xs font-medium uppercase tracking-[0.15em] text-teal">
+            {boarding}
+          </p>
+        )}
         {!open && (
           <div className="mt-2 flex items-baseline justify-between gap-3">
             <span className="num text-lg font-semibold">{d.flight}</span>

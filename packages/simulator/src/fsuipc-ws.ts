@@ -17,6 +17,10 @@ export const OFFSETS = [
   { name: "verticalSpeed", address: 0x02c8, type: "int", size: 4 },
   { name: "outsideAirTemp", address: 0x0e8c, type: "int", size: 2 },
   { name: "onGround", address: 0x0366, type: "uint", size: 2 },
+  // COM1/COM2 active (receiving) frequencies, 4 bytes each, in Hz. The old 2-byte BCD offsets
+  // (0x034E etc.) cannot carry 8.33 kHz channels, so the Hz offsets are used instead.
+  { name: "com1Active", address: 0x05c4, type: "uint", size: 4 },
+  { name: "com2Active", address: 0x05c8, type: "uint", size: 4 },
 ] as const;
 
 const SET_NAME = "openEfbTelemetry";

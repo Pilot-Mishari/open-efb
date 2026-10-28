@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
 import { WebSocketServer, type WebSocket as ServerSocket } from "ws";
-import { FsuipcWsAdapter, MockAdapter, convertRaw, looksLikeNoSimData, OFFSETS } from "../packages/simulator/src";
+import { FsuipcWsAdapter, MockAdapter, comActiveMhz, convertRaw, looksLikeNoSimData, OFFSETS } from "../packages/simulator/src";
 
 const TWO_32 = 2 ** 32;
 const GOOD = { latitude: 25.25, longitude: 55.36, altitude: 3048 * TWO_32, groundSpeed: 100 * 65536, indicatedAirspeed: 250 * 128, heading: TWO_32 / 2, verticalSpeed: 5 * 256, outsideAirTemp: -54 * 256, onGround: 0 };
@@ -31,6 +31,23 @@ describe("FSUIPC raw value conversion", () => {
   });
   it("accepts numeric strings", () => {
     expect(convertRaw({ indicatedAirspeed: "12800" }).indicatedAirspeedKt).toBe(100);
+  });
+  it("reads COM1/COM2 active frequencies from the Hz offsets, at kHz precision", () => {
+    expect(comActiveMhz(118_900_000)).toBe(118.9);
+    expect(comActiveMhz(118_025_000)).toBe(118.025); // 8.33 kHz channel
+    expect(comActiveMhz("121700000")).toBe(121.7);
+    const v = convertRaw({ ...GOOD, com1Active: 118_900_000, com2Active: 121_500_000 });
+    expect(v.com1ActiveMhz).toBe(118.9);
+    expect(v.com2ActiveMhz).toBe(121.5);
+  });
+  it("treats an unread, empty or out-of-band radio as unavailable", () => {
+    expect(comActiveMhz(0)).toBeNull();
+    expect(comActiveMhz(-1)).toBeNull();
+    expect(comActiveMhz(null)).toBeNull();
+    expect(comActiveMhz(undefined)).toBeNull();
+    expect(comActiveMhz(Number.NaN)).toBeNull();
+    expect(comActiveMhz(450_000_000)).toBeNull();
+    expect(convertRaw(GOOD).com1ActiveMhz).toBeNull();
   });
   it("detects the all-zero 'simulator not loaded' reading", () => {
     expect(looksLikeNoSimData({ latitude: 0, longitude: 0, altitude: 0, groundSpeed: 0, indicatedAirspeed: 0 })).toBe(true);

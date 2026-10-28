@@ -61,6 +61,17 @@ export const onGround = (raw: unknown): boolean | null => {
 export const latitudeDeg = (raw: unknown): number | null => inRange(asNumber(raw), -90, 90);
 export const longitudeDeg = (raw: unknown): number | null => inRange(asNumber(raw), -180, 180);
 
+/**
+ * 0x05C4 (COM1) and 0x05C8 (COM2), 4 bytes: active frequency in Hz.
+ * Only VHF airband values are accepted; a radio left off or an untouched offset reads 0.
+ */
+export const comActiveMhz = (raw: unknown): number | null => {
+  const n = asNumber(raw);
+  if (n === null || n <= 0) return null;
+  const mhz = Math.round(n / 1000) / 1000; // Hz -> MHz at kHz precision
+  return mhz >= 118 && mhz <= 137 ? mhz : null;
+};
+
 export function convertRaw(raw: RawOffsets): TelemetryValues {
   return {
     latitudeDeg: latitudeDeg(raw.latitude),
@@ -73,6 +84,8 @@ export function convertRaw(raw: RawOffsets): TelemetryValues {
     verticalSpeedFpm: verticalSpeedFpm(raw.verticalSpeed),
     outsideAirTempC: outsideAirTempC(raw.outsideAirTemp),
     onGround: onGround(raw.onGround),
+    com1ActiveMhz: comActiveMhz(raw.com1Active),
+    com2ActiveMhz: comActiveMhz(raw.com2Active),
   };
 }
 

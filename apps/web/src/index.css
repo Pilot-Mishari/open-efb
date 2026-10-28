@@ -127,6 +127,39 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- Airport flight board (split-flap) ------------------------------- */
+
+/* One flap: dark cell with the seam line drawn across its middle. Monospaced so every
+   column of the board lines up exactly as a mechanical board does. */
+.sf-cell {
+  display: inline-block;
+  min-width: 0.8em;
+  padding: 0.14em 0.04em 0.1em;
+  border-radius: 3px;
+  text-align: center;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", "Menlo", monospace;
+  font-variant-numeric: tabular-nums;
+  background-color: rgba(0, 0, 0, 0.34);
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0 47%,
+    rgba(0, 0, 0, 0.55) 47% 52%,
+    transparent 52% 100%
+  );
+}
+
+@keyframes sf-flip {
+  0% { transform: rotateX(0deg); opacity: 1; }
+  45% { transform: rotateX(-78deg); opacity: 0.35; }
+  100% { transform: rotateX(0deg); opacity: 1; }
+}
+
+.sf-flip {
+  animation: sf-flip 340ms ease-in-out both;
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
+
 :focus-visible {
   outline: 3px solid var(--efb-teal);
   outline-offset: 2px;

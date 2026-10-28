@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import L from "leaflet";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
 import { OPENFREEMAP_STYLES, VectorBasemap } from "../components/VectorBasemap";
-import { airportLocalTime, buildFlightMapData } from "../lib/flight-map";
+import { airportLocalTime, buildFlightMapData, formatHeading } from "../lib/flight-map";
 import { utcTime } from "../lib/format";
 import { usePlan } from "../lib/plan-context";
 import { useSimState } from "../lib/sim-state";
@@ -39,13 +39,6 @@ const aircraftIcon = (heading: number | null) => L.divIcon({
   iconSize: [30, 30],
   iconAnchor: [15, 15],
 });
-
-const formatHeading = (heading: number | null | undefined): string => {
-  if (heading === null || heading === undefined || !Number.isFinite(heading)) return "—";
-  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  const index = Math.round((((heading % 360) + 360) % 360) / 45) % directions.length;
-  return `${Math.round(heading).toLocaleString("en-US")}° ${directions[index]}`;
-};
 
 function FitToView({ points, target, aircraftPosition }: { points: [number, number][]; target: "route" | "aircraft" | "free"; aircraftPosition: [number, number] | null }) {
   const map = useMap();

@@ -16,6 +16,8 @@ import { CabinHomePage } from "./pages/CabinHomePage";
 import { CabinLayout } from "./pages/CabinLayout";
 import { CabinFeaturePage } from "./pages/CabinFeaturePage";
 import { CabinATCPage } from "./pages/CabinATCPage";
+import { CabinFlightInformationPage } from "./pages/CabinFlightInformationPage";
+import { CabinFlightBoardPage } from "./pages/CabinFlightBoardPage";
 import CabinMapPage from "./pages/CabinMapPage";
 import { CABIN_FEATURES, cabinFeaturePath } from "./lib/cabin-features";
 import { LaunchPage } from "./pages/LaunchPage";
@@ -24,6 +26,8 @@ import { LaunchPage } from "./pages/LaunchPage";
 const CABIN_CUSTOM: Record<string, ReactElement> = {
   map: <CabinMapPage />,
   atc: <CabinATCPage />,
+  "flight-information": <CabinFlightInformationPage />,
+  "flight-board": <CabinFlightBoardPage />,
 };
 
 const CUSTOM: Record<string, ReactElement> = {

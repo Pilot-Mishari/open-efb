@@ -35,6 +35,8 @@ export const emptyValues = (): TelemetryValues => ({
   verticalSpeedFpm: null,
   outsideAirTempC: null,
   onGround: null,
+  com1ActiveMhz: null,
+  com2ActiveMhz: null,
 });
 
 export const emptyTelemetry = (source: SimSource | null = null): Telemetry => ({

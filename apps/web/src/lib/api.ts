@@ -1,6 +1,6 @@
 import {
-  FlightPlanResponseSchema, HealthSchema, OfpTextResponseSchema, SessionSchema, SettingsSchema, VatsimAirportSchema,
-  type FlightPlanResponse, type Health, type OfpTextResponse, type SessionInfo, type Settings, type SettingsPatch, type VatsimAirport,
+  FlightBoardResponseSchema, FlightPlanResponseSchema, HealthSchema, ListenDecisionSchema, OfpTextResponseSchema, SessionSchema, SettingsSchema, SetupStatusSchema, VatsimAirportSchema,
+  type FlightBoardResponse, type FlightPlanResponse, type Health, type ListenDecision, type OfpTextResponse, type SessionInfo, type Settings, type SettingsPatch, type SetupStatus, type VatsimAirport,
 } from "@open-efb/shared";
 
 export class ApiError extends Error {
@@ -33,12 +33,29 @@ export const api = {
   simbrief: (refresh = false): Promise<FlightPlanResponse> =>
     fetch(`/api/simbrief/latest${refresh ? "?refresh=1" : ""}`).then((r) => json(r, (v) => FlightPlanResponseSchema.parse(v))),
   session: (): Promise<SessionInfo> => fetch("/api/session").then((r) => json(r, (v) => SessionSchema.parse(v))),
+  /** First-launch setup wizard: every item re-checks this computer when `force` is set. */
+  setup: (force = false): Promise<SetupStatus> =>
+    fetch(`/api/setup${force ? "?refresh=1" : ""}`).then((r) => json(r, (v) => SetupStatusSchema.parse(v))),
+  /** Remembers that the setup wizard was finished or skipped for good; shown again never. */
+  completeSetup: (): Promise<void> =>
+    fetch("/api/setup/complete", { method: "POST" }).then((r) => json(r, () => undefined)),
   pair: (code: string): Promise<void> =>
     fetch("/api/pair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) }).then((r) => json(r, () => undefined)),
   logout: (): Promise<void> => fetch("/api/session/logout", { method: "POST" }).then((r) => json(r, () => undefined)),
   ofpText: (): Promise<OfpTextResponse> => fetch("/api/simbrief/ofp").then((r) => json(r, (v) => OfpTextResponseSchema.parse(v))),
   vatsimAirport: (icao: string): Promise<VatsimAirport> =>
     fetch(`/api/vatsim/airport/${encodeURIComponent(icao)}`).then((r) => json(r, (v) => VatsimAirportSchema.parse(v))),
+  /** VATSIM departures and arrivals for one airport (network traffic, not real-world schedules). */
+  flightBoard: (code: string): Promise<FlightBoardResponse> =>
+    fetch(`/api/flightboard/${encodeURIComponent(code)}`).then((r) => json(r, (v) => FlightBoardResponseSchema.parse(v))),
+  /** Asks which VATSIM station (if any) is online on the aircraft's tuned COM frequencies. */
+  vatsimListen: (com1: number | null, com2: number | null): Promise<ListenDecision> => {
+    const p = new URLSearchParams();
+    if (com1 !== null) p.set("com1", (Math.round(com1 * 1000) / 1000).toFixed(3));
+    if (com2 !== null) p.set("com2", (Math.round(com2 * 1000) / 1000).toFixed(3));
+    const q = p.toString();
+    return fetch(`/api/vatsim/listen${q ? `?${q}` : ""}`).then((r) => json(r, (v) => ListenDecisionSchema.parse(v)));
+  },
 };
 
 export function describeError(e: unknown): string {
@@ -49,7 +66,9 @@ export function describeError(e: unknown): string {
     case "simbrief_invalid_plan": return "Your latest SimBrief plan is missing its origin or destination.";
     case "simbrief_upstream": return "SimBrief could not be reached. Try again in a moment.";
     case "vatsim_unavailable": return "VATSIM data is unavailable right now.";
+    case "flightboard_unavailable": return "VATSIM flight data is unavailable right now.";
     case "invalid_icao": return "Enter a 3 or 4 character airport code.";
+    case "invalid_frequency": return "The simulator reported a frequency Open EFB could not read.";
     case "invalid_code": return "That code is not right. Check the PC and try again.";
     case "pairing_locked": return `Too many attempts. Wait ${e instanceof ApiError && e.retryAfter ? e.retryAfter : 60} seconds, then use the new code on the PC.`;
     case "pairing_closed": return "Network access is switched off on the PC.";

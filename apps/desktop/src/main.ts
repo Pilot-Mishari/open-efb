@@ -103,6 +103,12 @@ function createWindow(url: string, focus = true): void {
     try {
       const u = new URL(target);
       if (u.protocol === "https:" && EXTERNAL_HOSTS.has(u.hostname)) void shell.openExternal(target);
+      // VATSIM Listen cannot be embedded (its sign-in page refuses to be framed), so the web app
+      // opens it as its own window and keeps that window on the tuned station. It shares this
+      // window's session, so the VATSIM sign-in done once is remembered.
+      else if (u.protocol === "https:" && u.hostname === "listen.vatsim.net") {
+        return { action: "allow", overrideBrowserWindowOptions: { width: 1100, height: 800, autoHideMenuBar: true } };
+      }
     } catch {
       /* ignore malformed URLs */
     }

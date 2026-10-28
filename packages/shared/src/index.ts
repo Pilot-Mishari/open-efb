@@ -2,5 +2,8 @@ export * from "./settings";
 export * from "./api";
 export * from "./flightplan";
 export * from "./vatsim";
+export * from "./flightboard";
 export * from "./access";
-export * from "./telemetry"
+export * from "./telemetry";
+export * from "./gsx";
+export * from "./setup";

@@ -326,7 +326,7 @@ Needs a Windows 10/11 PC; the simulator rows need MSFS 2020 or 2024, and live da
 
 **Existing features**
 - [ ] Tablet pairing over Wi-Fi: lock screen, code, dashboard; wrong code shows an error; disconnect works.
-- [ ] CabinView opens, map tiles load, ATC page opens VATSIM Listen in the embedded browser.
+- [ ] CabinView opens, map tiles load, ATC page opens VATSIM Listen in its own player window (VATSIM sign-in cannot be embedded; sign in once and the window is reused).
 - [ ] Chart cards open ChartFox and Navigraph in a new tab.
 - [ ] Port 4780 in use: error box, clean exit.
 
