@@ -22,7 +22,7 @@ nsis:
   allowElevation: false
   allowToChangeInstallationDirectory: true
   createStartMenuShortcut: true
-  createDesktopShortcut: false
+  createDesktopShortcut: true
   shortcutName: Open EFB
   artifactName: Open-EFB-Setup-${version}.${ext}
   deleteAppDataOnUninstall: false

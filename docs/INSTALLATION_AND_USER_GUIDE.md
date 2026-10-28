@@ -19,7 +19,7 @@
 
 | Item | Needed? | Notes |
 |---|---|---|
-| Windows 10 or 11, 64-bit | Yes | The installer is built for x64 only. |
+| Windows 10 or 11, 64-bit | Yes | The installer is built for x64 only and refuses to run on 32-bit Windows or on Windows older than build 10240 (the first Windows 10 build), with an error message instead of a broken install. |
 | Microsoft Flight Simulator 2020 or 2024 | Optional | Open EFB also runs without a simulator. |
 | FSUIPC7 **and** the FSUIPC WebSocket Server | Only for live flight data | Not needed to open the EFB automatically. Neither is bundled with Open EFB; install them from their authors. Check their own pages for licence terms and for the versions that support MSFS 2024. |
 | Node.js, .NET or other runtimes | No | Electron brings everything the app needs. |
@@ -50,12 +50,16 @@ Do not turn off SmartScreen or your antivirus to install it.
 
 ### Steps
 1. Run the installer. It installs **for your Windows account only** and does **not** ask for administrator rights.
-2. Choose the install folder, or keep the default.
-3. Finish. The option to start Open EFB straight away is on by default.
+2. On Windows older than Windows 10 (or 32-bit Windows) the installer shows why and closes without changing anything.
+3. Choose the install folder, or keep the default.
+4. On the **shortcut page**, decide about a desktop shortcut. The box is ticked by default; untick it if you only want the Start Menu entry. The Start Menu shortcut is always created.
+5. Finish. The option to start Open EFB straight away is on by default.
 
 What the installer does:
 - Copies the app to the install folder and adds a **Start Menu** shortcut named "Open EFB".
-- Does **not** create a desktop shortcut. (An optional desktop-shortcut checkbox is not implemented yet; pin the app from the Start Menu if you want one.)
+- Creates a desktop shortcut only when the box on the shortcut page is left ticked; unticking it also removes a desktop shortcut an earlier run made. A silent run (`Open-EFB-Setup-<version>.exe /S`) keeps the default (created) and can be given `/NODESKTOPSHORTCUT` instead.
+- Detects prerequisites: 64-bit Windows and Windows 10 build 10240 or newer, checked before any file is copied.
+- Detects an existing installation of Open EFB and runs the old version's uninstaller first (upgrades keep your data — see G).
 - Adds an entry to **Settings > Apps** for uninstalling.
 - Does not install FSUIPC, MSFS add-ons or any other third-party software.
 
@@ -76,6 +80,35 @@ Your settings, paired tablets and logs are **not** stored in the install folder,
 
 ### Launch
 Open **Open EFB** from the Start Menu. Closing the window does not quit the app; it keeps running in the tray. Use the tray icon to bring the window back.
+
+### The setup wizard
+On the first launch a **"Set up Open EFB"** dialog opens over the app. Every row is a live check performed on your computer at that moment — the dialog never guesses a status. The four statuses are:
+
+| Status | Meaning |
+|---|---|
+| **Connected** | Verified working right now (a real check: a loaded plan, an answered port, live data). |
+| **Needs setup** | Something concrete is missing; the row says exactly what. |
+| **Optional** | Works, but is not required, or its service could not be reached right now. |
+| **Unavailable** | Not present on this computer (for example no simulator installed). |
+
+The rows and what to do:
+
+| Row | What it checks | What you may need to do |
+|---|---|---|
+| **SimBrief flight plan** | Loads your latest OFP with the saved username. | Type your SimBrief **username or numeric Pilot ID** (from your SimBrief profile) and press **Save**. A free account is enough; **no password is ever requested or stored**. |
+| **GSX Pro ground services** | Whether FSDreamTeam GSX Pro's remote-control server answers, and whether GSX is installed at all. | If GSX is installed but not answering: start MSFS with GSX and enable the remote control server in GSX's own settings, then **Test**. If GSX is not installed the row is *Unavailable* and nothing is needed. |
+| **MSFS 2020 / 2024 simulator link** | Registry and folder detection of Steam and Microsoft Store installs, plus whether live data is flowing. | Nothing to fill in; install MSFS if you want live flight data. |
+| **Live data bridge (FSUIPC)** | Whether FSUIPC7 is present and its WebSocket server answers on port 2048 (default). | Install FSUIPC7 **and** Paul Henty's FSUIPC WebSocket Server, start both with the simulator, then **Test**. SimConnect alone is not enough. |
+| **Navigation charts** | Which chart provider the settings select. | Optional: **Open charts** shows ChartFox or Navigraph. Navigraph charts open navigraph.com in a new tab under your own account — Navigraph licenses its Charts API only for EFBs inside the simulator's virtual cockpit, so this standalone EFB does not embed them; no key or approval is needed for the website. |
+| **VATSIM radio and flight board** | Reaches VATSIM's public feed. | Nothing: no account, key or sign-up is needed. |
+
+Buttons:
+- **Test** re-runs every live check (it may take a second or two).
+- **Skip for now** (or the ×) only closes the dialog for this session — it comes back on the next launch.
+- **Finish setup** remembers that setup is done; from then on the wizard never opens by itself.
+- You can reopen it at any time from **Settings > Setup wizard**. Changes made there save immediately.
+
+The wizard is read-only except for saving your SimBrief username; it never changes GSX, FSUIPC or simulator settings.
 
 ### Pair a tablet
 1. Right-click the tray icon and choose **Connect a tablet...**.
@@ -215,7 +248,7 @@ Re-download and check the SHA256 hash. If Open EFB opens and immediately closes,
 
 ## G. Updating and uninstalling
 
-**Update.** Download the newer installer and run it over the existing installation (same account). Settings, paired tablets and logs are kept because they live in `%APPDATA%\Open EFB`, not in the install folder. Tablets stay paired. New settings (such as the simulator ones) take sensible defaults when an older settings record is loaded. **[Unverified on Windows]**
+**Update.** Download the newer installer and run it over the existing installation (same account). Settings, paired tablets and logs are kept because they live in `%APPDATA%\Open EFB`, not in the install folder. Tablets stay paired. New settings (such as the simulator ones) take sensible defaults when an older settings record is loaded. The desktop-shortcut page is shown again during an interactive update — untick it if you do not want the icon. **[Unverified on Windows]**
 
 **Uninstall.** Settings > Apps > Open EFB > Uninstall. A question asks whether to delete your settings, paired tablets and logs as well. The default is **No**, which keeps them for a later reinstall. Upgrades do not show this question.
 
@@ -277,11 +310,22 @@ Do not commit `.env` files (they are git-ignored) or put real keys in docs.
 Needs a Windows 10/11 PC; the simulator rows need MSFS 2020 or 2024, and live data rows need FSUIPC7 plus the WebSocket Server.
 
 **Installer**
-- [ ] Installs without an admin prompt. Start Menu shortcut exists; no desktop shortcut.
+- [ ] Installs without an admin prompt. Start Menu shortcut exists.
+- [ ] Shortcut page: default ticked → desktop shortcut exists after install. Re-run, untick → desktop shortcut is gone afterwards, Start Menu entry untouched.
 - [ ] App starts, tray icon appears, window shows "Server online".
 - [ ] Install over the same version and over an older one: settings and paired tablet survive.
+- [ ] Upgrade run: the shortcut page appears again; unticking it leaves no desktop shortcut.
 - [ ] Uninstall asks about data; **No** keeps `%APPDATA%\Open EFB`, **Yes** removes it.
 - [ ] Upgrade does not show the data question.
+- [ ] On Windows older than Windows 10 (VM): installer shows the prerequisite error and changes nothing. **[Hard to arrange; skip if no such VM]**
+
+**Setup wizard**
+- [ ] First launch shows "Set up Open EFB"; every row shows one of the four statuses and **Test** re-checks live.
+- [ ] **Finish setup**, quit and relaunch: the wizard stays closed.
+- [ ] **Skip for now** and relaunch: the wizard returns.
+- [ ] **Settings > Setup wizard** reopens it after finishing.
+- [ ] SimBrief row with a wrong username says it is not recognised and asks only for a username or Pilot ID — no password field anywhere.
+- [ ] Without FSUIPC installed the FSUIPC row says what to install; with the WebSocket Server running it turns **Connected**.
 
 **Auto launch**
 - [ ] Tray shows "Waiting for MSFS to start" with no simulator.
