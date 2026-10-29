@@ -4,6 +4,7 @@ import { EmptyState, Panel, SectionLayout } from "../components/Panel";
 import { describeError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useSettings } from "../lib/settings-context";
+import { useSetupWizard } from "../lib/setup-wizard-context";
 
 function Choice<T extends string>({ label, value, options, onPick }: { label: string; value: T; options: readonly T[]; onPick: (v: T) => void }) {
   return (
@@ -24,6 +25,7 @@ const SECTIONS = ["Display", "Integrations", "Network access", "About"];
 export function SettingsPage() {
   const { role, label, logout } = useAuth();
   const { settings, update, server, version } = useSettings();
+  const { open: openSetup } = useSetupWizard();
   const [section, setSection] = useState(SECTIONS[0]!);
   const [error, setError] = useState<string | null>(null);
   const [simbrief, setSimbrief] = useState(settings.simbriefUser);
@@ -57,6 +59,12 @@ export function SettingsPage() {
       )}
       {section === "Integrations" && (
         <>
+          <Panel title="Setup wizard" note="The first-launch checks, reopenable at any time">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-lg text-muted">Re-runs every integration check: SimBrief, GSX Pro, the simulator, the FSUIPC bridge, charts and VATSIM.</p>
+              <button onClick={openSetup} className="min-h-12 shrink-0 rounded-lg bg-teal px-6 text-lg font-semibold text-on-teal">Open setup</button>
+            </div>
+          </Panel>
           <Panel title="SimBrief" note="Loads your latest flight plan">
             <form onSubmit={(e) => { e.preventDefault(); void save({ simbriefUser: simbrief.trim() }); }} className="flex items-end gap-3">
               <label className="block flex-1">

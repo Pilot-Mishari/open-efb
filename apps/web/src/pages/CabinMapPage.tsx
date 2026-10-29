@@ -1,32 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import L from "leaflet";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
-import { airportLocalTime, buildFlightMapData } from "../lib/flight-map";
+import { OPENFREEMAP_STYLES, VectorBasemap } from "../components/VectorBasemap";
+import { airportLocalTime, buildFlightMapData, formatHeading } from "../lib/flight-map";
 import { utcTime } from "../lib/format";
 import { usePlan } from "../lib/plan-context";
 import { useSimState } from "../lib/sim-state";
 
-const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY ?? "REPLACE_WITH_CARTO_API_KEY";
-const TILE_ATTRIBUTION = '&copy; OpenStreetMap contributors &copy; CARTO';
-
-const withCartoKey = (url: string) => {
-  if (!CARTO_API_KEY || CARTO_API_KEY === "REPLACE_WITH_CARTO_API_KEY") return url;
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}key=${encodeURIComponent(CARTO_API_KEY)}`;
-};
 
 const MAP_THEMES = {
   dark: {
     name: "Dark",
-    tileUrl: withCartoKey("https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"),
+    style: OPENFREEMAP_STYLES.dark,
     panel: "bg-slate-950/80 border-slate-700/80 text-slate-100",
     label: "text-slate-300",
     button: "border-slate-600 bg-slate-900/80 text-slate-100 hover:bg-slate-800",
   },
   light: {
     name: "Light",
-    tileUrl: withCartoKey("https://basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"),
+    style: OPENFREEMAP_STYLES.light,
     panel: "bg-slate-950/75 border-slate-700/80 text-slate-100",
     label: "text-slate-300",
     button: "border-slate-600 bg-slate-900/80 text-slate-100 hover:bg-slate-800",
@@ -46,13 +39,6 @@ const aircraftIcon = (heading: number | null) => L.divIcon({
   iconSize: [30, 30],
   iconAnchor: [15, 15],
 });
-
-const formatHeading = (heading: number | null | undefined): string => {
-  if (heading === null || heading === undefined || !Number.isFinite(heading)) return "—";
-  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  const index = Math.round((((heading % 360) + 360) % 360) / 45) % directions.length;
-  return `${Math.round(heading).toLocaleString("en-US")}° ${directions[index]}`;
-};
 
 function FitToView({ points, target, aircraftPosition }: { points: [number, number][]; target: "route" | "aircraft" | "free"; aircraftPosition: [number, number] | null }) {
   const map = useMap();
@@ -80,6 +66,9 @@ function CabinMapPage() {
   const { plan } = usePlan();
   const sim = useSimState();
   const [mapError, setMapError] = useState(false);
+  const [vectorFailed, setVectorFailed] = useState(false);
+  const onMapStatus = useCallback((ok: boolean) => setMapError(!ok), []);
+  const onVectorUnavailable = useCallback(() => setVectorFailed(true), []);
   const [showDetails, setShowDetails] = useState(true);
   const [theme, setTheme] = useState<keyof typeof MAP_THEMES>("dark");
   const [centerMode, setCenterMode] = useState<"route" | "aircraft" | "free">("free");
@@ -187,16 +176,19 @@ function CabinMapPage() {
 
       <MapContainer center={[20, 0]} zoom={3} scrollWheelZoom className="h-full w-full" zoomControl>
         <FitToView points={routePoints} target={centerMode} aircraftPosition={aircraftPosition} />
-        <TileLayer
-          attribution={TILE_ATTRIBUTION}
-          url={themeConfig.tileUrl}
-          subdomains="abcd"
-          maxZoom={19}
-          eventHandlers={{
-            tileerror: () => setMapError(true),
-            load: () => setMapError(false),
-          }}
-        />
+        {vectorFailed ? (
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
+            eventHandlers={{
+              tileerror: () => setMapError(true),
+              load: () => setMapError(false),
+            }}
+          />
+        ) : (
+          <VectorBasemap style={themeConfig.style} onStatus={onMapStatus} onUnavailable={onVectorUnavailable} />
+        )}
 
         <Polyline positions={routePoints} pathOptions={{ color: theme === "dark" ? "#5eead4" : "#0f766e", weight: 3, opacity: 0.9, dashArray: "10 8" }} />
         {travelledPoints.length > 1 && <Polyline positions={travelledPoints} pathOptions={{ color: "#22d3ee", weight: 5, opacity: 0.98 }} />}

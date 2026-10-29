@@ -20,7 +20,7 @@ export const MODULES: ModuleDef[] = [
     sections: ["METAR", "TAF", "Airport"] },
   { id: "checklists", path: "/checklists", name: "Checklists", blurb: "Aircraft-specific, phase by phase", icon: "checklists", status: "preview" },
   { id: "charts", path: "/charts", name: "Charts", blurb: "Approach and airport charts", icon: "charts", status: "live" },
-  { id: "ground", path: "/ground", name: "Ground services", blurb: "GSX Pro remote control", icon: "ground", status: "preview" },
+  { id: "ground", path: "/ground", name: "Ground services", blurb: "GSX Pro service status", icon: "ground", status: "live" },
   { id: "performance", path: "/performance", name: "Performance", blurb: "Takeoff and landing figures", icon: "performance", status: "preview" },
   { id: "network", path: "/network", name: "Network", blurb: "VATSIM controllers and frequencies", icon: "network", status: "live" },
   { id: "logbook", path: "/logbook", name: "Logbook", blurb: "Flights and landing rates", icon: "logbook", status: "preview" },

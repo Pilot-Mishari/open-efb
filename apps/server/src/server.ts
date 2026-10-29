@@ -8,12 +8,14 @@ import { createApp } from "./app";
 import { identify, type AuthDeps } from "./auth";
 import { openDatabase } from "./db";
 import { hostAllowed, isLoopback, lanAddresses, originAllowed } from "./guard";
+import { GsxManager, localGsxLocator, type GsxLocator } from "./gsx";
 import { ClientHub } from "./hub";
 import { createLogger, type LogBuffer } from "./logger";
 import { Pairing, type PairingOptions } from "./pairing";
 import { SessionStore } from "./sessions";
 import { SettingsStore } from "./settings-store";
 import { SimulatorManager } from "./simulator";
+import type { SimulatorInstall } from "./simulator-detect";
 
 export interface ServerOptions {
   dataDir: string;
@@ -25,6 +27,12 @@ export interface ServerOptions {
   isLocal?: (req: IncomingMessage) => boolean;
   pairing?: PairingOptions;
   simulator?: "fsuipc" | "mock";
+  /** How GSX Pro is located on this machine. Injected by tests; defaults to the local GSX config. */
+  gsxLocator?: GsxLocator;
+  /** Machine probes behind GET /api/setup. Injected by tests; default to the real local checks. */
+  detectSims?: () => SimulatorInstall[];
+  detectFsuipc?: () => boolean;
+  probePort?: (port: number) => Promise<boolean>;
 }
 
 export interface AccessControl {
@@ -73,7 +81,24 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
     },
   };
   const sim = new SimulatorManager(settings, hub, logger, opts.simulator ?? (process.env.OPEN_EFB_SIM?.trim() === "mock" ? "mock" : "fsuipc"));
-  const app = createApp({ version, startedAt: Date.now(), settings, logger, webDir: opts.webDir, fetch: opts.fetch, auth, telemetry: () => sim.message() });
+  // GSX is a local, read-only side link. It never fails the EFB: with GSX absent the manager just
+  // parks on an "unavailable" status and everything else keeps running.
+  const gsx = new GsxManager({ hub, logger, locator: opts.gsxLocator ?? localGsxLocator() });
+  hub.extraGreeting = () => gsx.message();
+  const app = createApp({
+    version,
+    startedAt: Date.now(),
+    settings,
+    logger,
+    webDir: opts.webDir,
+    fetch: opts.fetch,
+    auth,
+    telemetry: () => sim.message(),
+    gsx: () => gsx.status(),
+    detectSims: opts.detectSims,
+    detectFsuipc: opts.detectFsuipc,
+    probePort: opts.probePort,
+  });
 
   let srv: Server | null = null;
   let host: string | null = null;
@@ -123,6 +148,7 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
   const stop = async () => {
     if (!srv) return;
     await sim.stop();
+    await gsx.stop();
     await unbind();
     pairing.close();
     logger.info("server stopped");
@@ -140,12 +166,14 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
       if (lan()) pairing.open();
       await bind(opts.port ?? settings.get().port);
       await sim.start()
+      gsx.start();
       emit();
       return { host: host!, port: port!, url: `http://localhost:${port}` };
     },
     async dispose() {
       await stop();
       await sim.dispose()
+      await gsx.stop();
       hub.dispose();
       db.close();
       await closeLogger();

@@ -54,6 +54,9 @@ export class MockAdapter extends TelemetryEmitter implements SimulatorAdapter {
         verticalSpeedFpm: 0,
         outsideAirTempC: -54,
         onGround: false,
+        // Simulated radios: a stable COM1/COM2 pair so the automatic ATC listening can be previewed.
+        com1ActiveMhz: 119.8,
+        com2ActiveMhz: 121.2,
       },
     });
   }

@@ -21,6 +21,8 @@ const fields = {
   fsuipcPort: z.number().int().min(1024).max(65535),
   autoLaunchOnSimulator: z.boolean(),
   startWithWindows: z.boolean(),
+  /** True once the first-launch setup wizard was finished (or deliberately skipped for good). */
+  setupCompleted: z.boolean(),
 };
 
 export const UnitsSchema = z.object({
@@ -42,6 +44,7 @@ export const SettingsSchema = z.object({
   fsuipcPort: fields.fsuipcPort.default(DEFAULT_FSUIPC_PORT),
   autoLaunchOnSimulator: fields.autoLaunchOnSimulator.default(true),
   startWithWindows: fields.startWithWindows.default(false),
+  setupCompleted: fields.setupCompleted.default(false),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;

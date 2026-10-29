@@ -59,6 +59,9 @@ describe("CABIN_FEATURES", () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(cabinFeaturePath(id)).toMatch(/^\/cabin\/[a-z-]+$/);
     expect(ids).not.toContain("home");
-    expect(ids).toEqual(expect.arrayContaining(["atc", "flight-information", "about-flight"]));
+    expect(ids).toEqual(expect.arrayContaining(["atc", "flight-information", "flight-board", "map"]));
+    // Radio and About This Flight were dropped from the shipped CabinView.
+    expect(ids).not.toContain("radio");
+    expect(ids).not.toContain("about-flight");
   });
 });

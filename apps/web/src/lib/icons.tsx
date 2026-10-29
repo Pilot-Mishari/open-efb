@@ -1,6 +1,6 @@
 export type IconName =
   | "home" | "briefing" | "weather" | "checklists" | "charts" | "ground"
-  | "performance" | "network" | "logbook" | "settings" | "cabin";
+  | "performance" | "network" | "logbook" | "settings" | "cabin" | "board";
 
 // Simple original line icons on a 24x24 grid.
 const PATHS: Record<IconName, string> = {
@@ -15,6 +15,8 @@ const PATHS: Record<IconName, string> = {
   logbook: "M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z M5 18a2 2 0 0 1 2-2h12",
   settings: "M4 7h10 M18 7h2 M4 17h2 M10 17h10 M16 5v4 M8 15v4",
   cabin: "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z",
+  // Two rows of split-flap tiles with the flap seam across each row.
+  board: "M3 3h18v7H3z M3 6.5h18 M3 14h18v7H3z M3 17.5h18",
 };
 
 export function Icon({ name, className = "h-6 w-6" }: { name: IconName; className?: string }) {

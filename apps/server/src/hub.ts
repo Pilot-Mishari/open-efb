@@ -24,6 +24,9 @@ export class ClientHub {
   }
 
   greeting: (() => unknown) | null = null;
+  /** Extra state a manager wants every new client to have straight away (GSX status), so a freshly
+   * opened screen never has to poll to learn what is already known. */
+  extraGreeting: (() => unknown) | null = null;
 
   accept(req: IncomingMessage, socket: Duplex, head: Buffer, sessionId: string | null): void {
     this.wss.handleUpgrade(req, socket, head, (ws) => {
@@ -37,6 +40,8 @@ export class ClientHub {
         this.notify();
       });
       ws.send(JSON.stringify({ type: "hello", version: this.version, serverTime: Date.now() }));
+      if (this.greeting) ws.send(JSON.stringify(this.greeting()));
+      if (this.extraGreeting) ws.send(JSON.stringify(this.extraGreeting()));
       this.notify();
     });
   }

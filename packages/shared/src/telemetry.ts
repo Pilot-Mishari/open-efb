@@ -21,6 +21,10 @@ export const TelemetryValuesSchema = z.object({
   verticalSpeedFpm: z.number().nullable(),
   outsideAirTempC: z.number().nullable(),
   onGround: z.boolean().nullable(),
+  /** COM1 active (receiving) frequency in MHz, e.g. 118.9, or null when the simulator reported none. */
+  com1ActiveMhz: z.number().nullable(),
+  /** COM2 active (receiving) frequency in MHz, e.g. 119.9, or null when the simulator reported none. */
+  com2ActiveMhz: z.number().nullable(),
 });
 export type TelemetryValues = z.infer<typeof TelemetryValuesSchema>;
 

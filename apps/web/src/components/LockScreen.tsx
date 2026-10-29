@@ -19,7 +19,9 @@ const code = (a?: AirportInfo | null) => a?.iata ?? a?.icao ?? null;
 
 const LETTERS = ["ABC", "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ"];
 const BG = {
-  backgroundImage: "linear-gradient(to bottom, rgb(13 28 66 / 0.55), rgb(13 28 66 / 0.85)), url(/launch.png), radial-gradient(ellipse at 50% 30%, var(--efb-panel-hi), var(--efb-ink) 75%)",
+  // Kept light through the middle of the screen so the photograph stays visible; only the top
+  // strip (header) and the bottom band (clock and footer) carry enough tint to stay readable.
+  backgroundImage: "linear-gradient(to bottom, rgb(13 28 66 / 0.5) 0%, rgb(13 28 66 / 0.12) 34%, rgb(13 28 66 / 0.45) 66%, rgb(13 28 66 / 0.82) 100%), url(/launch.png), radial-gradient(ellipse at 50% 30%, var(--efb-panel-hi), var(--efb-ink) 75%)",
   backgroundSize: "cover",
   backgroundPosition: "center",
 } as const;
@@ -42,9 +44,9 @@ function Key({ digit, onPress }: { digit: string; onPress: (d: string) => void }
 
 function Row({ label, value, dim = false }: { label: string; value: string; dim?: boolean }) {
   return (
-    <div className={`flex items-baseline justify-between border-b border-line/60 py-3 last:border-0 ${dim ? "text-muted" : ""}`}>
-      <span className="text-lg">{label}</span>
-      <span className="num text-xl">{value}</span>
+    <div className={`flex items-baseline justify-between gap-6 ${dim ? "text-muted" : ""}`}>
+      <span className="text-base text-muted">{label}</span>
+      <span className="num text-lg">{value}</span>
     </div>
   );
 }
@@ -186,7 +188,7 @@ export function LockScreen({ plan, pill, alert, onUnlock, onPin }: LockScreenPro
       )}
 
       <div
-        className="absolute inset-0 z-10 flex touch-none select-none flex-col justify-between overflow-hidden px-12 py-10"
+        className="absolute inset-0 z-10 flex touch-none select-none flex-col justify-between overflow-hidden px-12 py-8"
         style={{ ...BG, transform: `translate3d(0, ${open ? "-100%" : `${-drag}px`}, 0)`, transition, pointerEvents: open ? "none" : "auto" }}
         aria-hidden={open} inert={open}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
@@ -209,29 +211,32 @@ export function LockScreen({ plan, pill, alert, onUnlock, onPin }: LockScreenPro
           </div>
         )}
 
-        <div className="flex items-end justify-between gap-8">
+        <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
           <div>
-            <div className="num text-lg uppercase tracking-[0.25em] text-muted">{dateText}</div>
-            <div className="num font-instrument text-[11rem] font-extralight leading-none tracking-tight xl:text-[14rem]" aria-label={`${bigLabel} time ${hhmm(now, bigOffset)}`}>
+            <div className="num text-base uppercase tracking-[0.25em] text-muted">{dateText}</div>
+            <div className="num font-instrument text-[7rem] font-extralight leading-none tracking-tight xl:text-[9rem]" aria-label={`${bigLabel} time ${hhmm(now, bigOffset)}`}>
               {hhmm(now, bigOffset)}
             </div>
-            <div className="num mt-2 flex gap-6 text-xl">
+            <div className="num mt-2 flex flex-wrap gap-x-6 gap-y-1 text-lg">
               <span>UTC {hhmm(now, 0)}</span>
               {plan && destOffset !== null && <span>{code(plan.destination)} {hhmm(now, destOffset)}</span>}
               {plan && originOffset !== null && <span className="text-muted">{bigLabel}</span>}
             </div>
           </div>
 
-          <section className="w-96 shrink-0 rounded-3xl border border-line/60 bg-panel/90 p-6 backdrop-blur" aria-label="Next up">
+          {/* No panel here: the schedule is a caption on the photograph, not a card over it. */}
+          <section className="shrink-0" aria-label="Next up">
             <h2 className="num mb-2 text-sm uppercase tracking-[0.25em] text-muted">Next up</h2>
-            <Row label="Pushback" value={pushback} />
-            <Row label="Runway" value={plan?.origin.runway ?? "—"} dim />
-            <Row label="Arrival" value={arrival} dim />
+            <div className="w-56 space-y-1.5">
+              <Row label="Pushback" value={pushback} />
+              <Row label="Runway" value={plan?.origin.runway ?? "—"} dim />
+              <Row label="Arrival" value={arrival} dim />
+            </div>
           </section>
         </div>
 
-        <footer className="flex items-center justify-between border-t border-line/60 pt-5">
-          <div className="num flex items-center gap-4 text-xl">
+        <footer className="flex items-center justify-between border-t border-line/60 pt-4">
+          <div className="num flex flex-wrap items-center gap-x-4 gap-y-1 text-lg">
             <span>{plan?.callsign ?? plan?.flightNumber ?? "NO CALLSIGN"}</span>
             <span className="text-muted">&middot;</span>
             <span>{plan ? `${plan.origin.icao} → ${plan.destination.icao}` : "———— → ————"}</span>

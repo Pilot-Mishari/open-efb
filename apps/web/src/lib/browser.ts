@@ -30,28 +30,45 @@ export function normalizeVatsimStationId(raw: string | null): string | null {
   if (!directValue) return null;
 
   const candidate = directValue
-    .replace(/https?:\/\/listen\.vatsim\.net\//i, "")
+    .replace(/^(?:https?:\/\/)?listen\.vatsim\.net\/(?:live\/)?/i, "")
+    .replace(/^\/+/, "")
     .replace(/\s+/g, "_")
     .replace(/[^A-Z0-9_]/gi, "")
     .toUpperCase();
 
   if (!candidate) return null;
 
+  // A VATSIM Listen station is a VATSIM controller callsign: 2 to 4 underscore-separated
+  // groups of letters/digits, e.g. EDDF_TWR, KJFK_GND, OTHH_1_GND, LON_CTR.
   const parts = candidate.split("_").filter(Boolean);
-  if (parts.length !== 3) return null;
+  if (parts.length < 2 || parts.length > 4) return null;
+  if (candidate.length > 32) return null;
+  if (!parts.every((p) => /^[A-Z0-9]{1,10}$/.test(p))) return null;
 
-  const [airportCode, sequence, service] = parts;
-  if (!airportCode || !sequence || !service) return null;
-  if (!/^[A-Z]{4}$/.test(airportCode)) return null;
-  if (!/^\d+$/.test(sequence) || Number(sequence) < 1) return null;
-  if (!/^[A-Z]+$/.test(service)) return null;
+  return parts.join("_");
+}
 
-  return `${airportCode}_${sequence}_${service}`;
+/**
+ * VATSIM Listen cannot be framed: its sign-in is an OAuth redirect to auth.vatsim.net, which
+ * answers every cross-origin frame with X-Frame-Options: SAMEORIGIN and Cross-Origin-Resource-Policy:
+ * same-origin (the browser reports ERR_BLOCKED_BY_RESPONSE), and browsers partition iframe storage so
+ * a sign-in completed at top level never carries into the frame either. The player therefore gets its
+ * own window for this host, where the VATSIM sign-in works once and the session is remembered.
+ * Every other site keeps using the embedded iframe.
+ */
+export function needsPlayerWindow(rawUrl: string): boolean {
+  try {
+    return new URL(rawUrl).hostname === "listen.vatsim.net";
+  } catch {
+    return false;
+  }
 }
 
 export function buildVatsimListenUrl(rawStation: string): string | null {
   const station = normalizeVatsimStationId(rawStation);
   if (!station) return null;
 
+  // Verified against the Listen app's own router: it matches /^\/live\/([^/]+)\/?$/i,
+  // uppercases the segment and selects that callsign once its online list arrives.
   return `https://listen.vatsim.net/live/${station}`;
 }
