@@ -6,19 +6,25 @@ import { useAuth } from "../lib/auth-context";
 import { useSettings } from "../lib/settings-context";
 import { useSetupWizard } from "../lib/setup-wizard-context";
 
-function Choice<T extends string>({ label, value, options, onPick }: { label: string; value: T; options: readonly T[]; onPick: (v: T) => void }) {
+function Choice<T extends string>({ label, value, options, onPick, labelFor }: { label: string; value: T; options: readonly T[]; onPick: (v: T) => void; labelFor?: (v: T) => string }) {
   return (
     <div className="flex items-center justify-between gap-6 border-b border-line py-4 last:border-b-0">
       <span className="text-lg">{label}</span>
       <div role="radiogroup" aria-label={label} className="flex overflow-hidden rounded-lg border border-line">
         {options.map((o) => (
           <button key={o} role="radio" aria-checked={o === value} onClick={() => onPick(o)}
-            className={`num min-h-12 min-w-20 px-5 text-lg ${o === value ? "bg-teal font-semibold text-on-teal" : "bg-ink text-muted"}`}>{o}</button>
+            className={`num min-h-12 min-w-20 px-5 text-lg ${o === value ? "bg-teal font-semibold text-on-teal" : "bg-ink text-muted"}`}>{labelFor ? labelFor(o) : o}</button>
         ))}
       </div>
     </div>
   );
 }
+
+const LINK_LABELS: Record<Settings["simLink"], string> = {
+  auto: "Auto",
+  simconnect: "SimConnect",
+  fsuipc: "FSUIPC",
+};
 
 const SECTIONS = ["Display", "Integrations", "Network access", "About"];
 
@@ -61,7 +67,7 @@ export function SettingsPage() {
         <>
           <Panel title="Setup wizard" note="The first-launch checks, reopenable at any time">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-lg text-muted">Re-runs every integration check: SimBrief, GSX Pro, the simulator, the FSUIPC bridge, charts and VATSIM.</p>
+              <p className="text-lg text-muted">Re-runs every integration check: SimBrief, GSX Pro, the simulator, the live data link, charts and VATSIM.</p>
               <button onClick={openSetup} className="min-h-12 shrink-0 rounded-lg bg-teal px-6 text-lg font-semibold text-on-teal">Open setup</button>
             </div>
           </Panel>
@@ -79,7 +85,8 @@ export function SettingsPage() {
           <Panel title="Simulator" note="Microsoft Flight Simulator 2020 and 2024">
             <Choice label="Open the EFB when MSFS starts" value={settings.autoLaunchOnSimulator ? "on" : "off"} options={["on", "off"] as const} onPick={(v) => save({ autoLaunchOnSimulator: v === "on" })} />
             <Choice label="Start Open EFB with Windows" value={settings.startWithWindows ? "on" : "off"} options={["on", "off"] as const} onPick={(v) => save({ startWithWindows: v === "on" })} />
-            <p className="mt-3 text-sm text-muted">Open EFB watches for the MSFS program every few seconds, so it must be running (in the tray) when you start the simulator. Starting with Windows keeps it in the tray without opening a window. Live flight data also needs FSUIPC7 and its WebSocket server. These settings can only be changed on the PC.</p>
+            <Choice label="Live flight data link" value={settings.simLink} options={["auto", "simconnect", "fsuipc"] as const} labelFor={(v) => LINK_LABELS[v]} onPick={(v) => save({ simLink: v })} />
+            <p className="mt-3 text-sm text-muted">Open EFB watches for the MSFS program every few seconds, so it must be running (in the tray) when you start the simulator. Starting with Windows keeps it in the tray without opening a window. Live data uses SimConnect, which ships with MSFS 2020 and 2024 — nothing to install. Only switch the link to FSUIPC if your setup already runs FSUIPC7 and its WebSocket server. These settings can only be changed on the PC.</p>
           </Panel>
           <Panel title="Charts">
             <Choice label="Show first" value={settings.chartsProvider} options={["chartfox", "navigraph"] as const} onPick={(v) => save({ chartsProvider: v })} />

@@ -1,6 +1,6 @@
 import {
-  FlightBoardResponseSchema, FlightPlanResponseSchema, HealthSchema, ListenDecisionSchema, OfpTextResponseSchema, SessionSchema, SettingsSchema, SetupStatusSchema, VatsimAirportSchema,
-  type FlightBoardResponse, type FlightPlanResponse, type Health, type ListenDecision, type OfpTextResponse, type SessionInfo, type Settings, type SettingsPatch, type SetupStatus, type VatsimAirport,
+  FlightBoardResponseSchema, FlightPlanResponseSchema, GsxTriggerResultSchema, HealthSchema, ListenDecisionSchema, OfpTextResponseSchema, SessionSchema, SettingsSchema, SetupStatusSchema, VatsimAirportSchema,
+  type FlightBoardResponse, type FlightPlanResponse, type GsxServiceId, type GsxTriggerResult, type Health, type ListenDecision, type OfpTextResponse, type SessionInfo, type Settings, type SettingsPatch, type SetupStatus, type VatsimAirport,
 } from "@open-efb/shared";
 
 export class ApiError extends Error {
@@ -56,6 +56,13 @@ export const api = {
     const q = p.toString();
     return fetch(`/api/vatsim/listen${q ? `?${q}` : ""}`).then((r) => json(r, (v) => ListenDecisionSchema.parse(v)));
   },
+  /** Asks GSX to start one ground service. GSX's own answer, including any refusal, comes back. */
+  gsxTrigger: (service: GsxServiceId): Promise<GsxTriggerResult> =>
+    fetch("/api/gsx/trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service }),
+    }).then((r) => json(r, (v) => GsxTriggerResultSchema.parse(v))),
 };
 
 export function describeError(e: unknown): string {

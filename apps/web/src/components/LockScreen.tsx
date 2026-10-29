@@ -21,12 +21,12 @@ const LETTERS = ["ABC", "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ"];
 const BG = {
   // Kept light through the middle of the screen so the photograph stays visible; only the top
   // strip (header) and the bottom band (clock and footer) carry enough tint to stay readable.
-  backgroundImage: "linear-gradient(to bottom, rgb(13 28 66 / 0.5) 0%, rgb(13 28 66 / 0.12) 34%, rgb(13 28 66 / 0.45) 66%, rgb(13 28 66 / 0.82) 100%), url(/launch.png), radial-gradient(ellipse at 50% 30%, var(--efb-panel-hi), var(--efb-ink) 75%)",
+  backgroundImage: "linear-gradient(to bottom, rgb(13 28 66 / 0.5) 0%, rgb(13 28 66 / 0.12) 34%, rgb(13 28 66 / 0.45) 66%, rgb(13 28 66 / 0.82) 100%), url(/launch.webp), radial-gradient(ellipse at 50% 30%, var(--efb-panel-hi), var(--efb-ink) 75%)",
   backgroundSize: "cover",
   backgroundPosition: "center",
 } as const;
 const PASSCODE_BG = {
-  backgroundImage: "linear-gradient(to bottom, rgb(13 28 66 / 0.6), rgb(13 28 66 / 0.9)), url(/passcode.png), radial-gradient(ellipse at 50% 30%, var(--efb-panel-hi), var(--efb-ink) 75%)",
+  backgroundImage: "linear-gradient(to bottom, rgb(13 28 66 / 0.6), rgb(13 28 66 / 0.9)), url(/passcode.webp), radial-gradient(ellipse at 50% 30%, var(--efb-panel-hi), var(--efb-ink) 75%)",
   backgroundSize: "cover",
   backgroundPosition: "center",
 } as const;
@@ -51,6 +51,40 @@ function Row({ label, value, dim = false }: { label: string; value: string; dim?
   );
 }
 
+/**
+ * The only part of the lock screen that changes every second. It owns its own clock so the tick
+ * repaints these few lines of text instead of the whole screen — the photographic background,
+ * the swipe layer and the keypad are all outside this component and stay untouched.
+ */
+function Clock({ plan, bigOffset, bigLabel }: { plan: FlightPlan | null; bigOffset: number; bigLabel: string | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const originOffset = offsetOf(plan?.origin);
+  const destOffset = offsetOf(plan?.destination);
+  const dateText = new Date(now + bigOffset * HOUR)
+    .toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
+    .replace(",", "")
+    .toUpperCase();
+
+  return (
+    <div>
+      <div className="num text-base uppercase tracking-[0.25em] text-muted">{dateText}</div>
+      <div className="num font-instrument text-[7rem] font-extralight leading-none tracking-tight xl:text-[9rem]" aria-label={`${bigLabel} time ${hhmm(now, bigOffset)}`}>
+        {hhmm(now, bigOffset)}
+      </div>
+      <div className="num mt-2 flex flex-wrap gap-x-6 gap-y-1 text-lg">
+        <span>UTC {hhmm(now, 0)}</span>
+        {plan && destOffset !== null && <span>{code(plan.destination)} {hhmm(now, destOffset)}</span>}
+        {plan && originOffset !== null && <span className="text-muted">{bigLabel}</span>}
+      </div>
+    </div>
+  );
+}
+
 export interface LockScreenProps {
   plan: FlightPlan | null;
   pill: readonly [string, string];
@@ -62,7 +96,6 @@ export interface LockScreenProps {
 }
 
 export function LockScreen({ plan, pill, alert, onUnlock, onPin }: LockScreenProps) {
-  const [now, setNow] = useState(() => Date.now());
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [open, setOpen] = useState(false);
@@ -74,10 +107,7 @@ export function LockScreen({ plan, pill, alert, onUnlock, onPin }: LockScreenPro
   const rootRef = useRef<HTMLDivElement>(null);
   const timer = useRef<number | undefined>(undefined);
 
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => { window.clearInterval(t); window.clearTimeout(timer.current); };
-  }, []);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const openLock = () => {
     if (open) return;
@@ -133,14 +163,9 @@ export function LockScreen({ plan, pill, alert, onUnlock, onPin }: LockScreenPro
   const transition = dragging ? "none" : EASE;
 
   const originOffset = offsetOf(plan?.origin);
-  const destOffset = offsetOf(plan?.destination);
-  const deviceOffset = -new Date(now).getTimezoneOffset() / 60;
+  const deviceOffset = -new Date().getTimezoneOffset() / 60;
   const bigOffset = originOffset ?? deviceOffset;
   const bigLabel = plan && originOffset !== null ? code(plan.origin) : "LOCAL";
-  const dateText = new Date(now + bigOffset * HOUR)
-    .toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
-    .replace(",", "")
-    .toUpperCase();
   const [pillText, pillDot] = pill;
   const pushback = plan ? utcTime(plan.times.scheduledOut ?? plan.times.estimatedOut) : "—";
   const arrival = plan ? utcTime(plan.times.estimatedIn) : "—";
@@ -212,17 +237,7 @@ export function LockScreen({ plan, pill, alert, onUnlock, onPin }: LockScreenPro
         )}
 
         <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
-          <div>
-            <div className="num text-base uppercase tracking-[0.25em] text-muted">{dateText}</div>
-            <div className="num font-instrument text-[7rem] font-extralight leading-none tracking-tight xl:text-[9rem]" aria-label={`${bigLabel} time ${hhmm(now, bigOffset)}`}>
-              {hhmm(now, bigOffset)}
-            </div>
-            <div className="num mt-2 flex flex-wrap gap-x-6 gap-y-1 text-lg">
-              <span>UTC {hhmm(now, 0)}</span>
-              {plan && destOffset !== null && <span>{code(plan.destination)} {hhmm(now, destOffset)}</span>}
-              {plan && originOffset !== null && <span className="text-muted">{bigLabel}</span>}
-            </div>
-          </div>
+          <Clock plan={plan} bigOffset={bigOffset} bigLabel={bigLabel} />
 
           {/* No panel here: the schedule is a caption on the photograph, not a card over it. */}
           <section className="shrink-0" aria-label="Next up">

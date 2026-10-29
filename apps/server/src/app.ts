@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import express, { type Express } from "express";
-import { SettingsPatchSchema, type GsxStatus, type Health, type TelemetryMessage } from "@open-efb/shared";
+import { SettingsPatchSchema, GsxServiceIdSchema, type GsxStatus, type GsxTriggerResult, type GsxServiceId, type Health, type TelemetryMessage } from "@open-efb/shared";
 import type { Logger } from "pino";
 import { authRoutes, requireAuth, requireLocal, type AuthDeps } from "./auth";
 import { hostGuard, originGuard } from "./guard";
@@ -19,6 +19,8 @@ export interface AppContext {
   auth: AuthDeps;
   telemetry: () => TelemetryMessage;
   gsx: () => GsxStatus;
+  /** Asks GSX to start one ground service; defined even when GSX is absent (it then refuses). */
+  gsxTrigger: (service: GsxServiceId) => Promise<GsxTriggerResult>;
   /** Machine probes for GET /api/setup; undefined means "use the real local checks". */
   detectSims?: (() => SimulatorInstall[]) | undefined;
   detectFsuipc?: (() => boolean) | undefined;
@@ -59,6 +61,23 @@ export function createApp(ctx: AppContext): Express {
   /** GSX Pro's read-only ground-service state (bare status, unlike the pushed WS message). */
   app.get("/api/gsx", (_req, res) => {
     res.json(ctx.gsx());
+  });
+
+  /**
+   * The one control the EFB exposes over GSX: start a ground service the user picked, over GSX's
+   * own `service.trigger` verb. GSX decides whether it can run — its answer (including a refusal)
+   * is returned verbatim, and nothing here writes a GSX setting or file.
+   */
+  app.post("/api/gsx/trigger", (req, res) => {
+    const parsed = GsxServiceIdSchema.safeParse((req.body as { service?: unknown } | undefined)?.service);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_service" });
+      return;
+    }
+    void ctx.gsxTrigger(parsed.data).then((result) => {
+      if (!result.ok) ctx.logger.info({ service: parsed.data, code: result.code }, "GSX trigger refused");
+      res.json(result);
+    });
   });
 
   app.get("/api/settings", (_req, res) => {

@@ -102,21 +102,32 @@ describe("buildSetupStatus", () => {
     expect(i.detail).toMatch(/simulated/i);
   });
 
-  it("fsuipc: connected from live fsuipc telemetry, or from an answering port", () => {
+  it("fsuipc: connected from live telemetry of either link, or from an answering port", () => {
     expect(item(baseFacts({ telemetry: baseTelemetry({ status: "connected", source: "fsuipc" }) }), "fsuipc").status).toBe("connected");
-    expect(item(baseFacts({ fsuipcPortOpen: true }), "fsuipc").status).toBe("connected");
+    expect(item(baseFacts({ telemetry: baseTelemetry({ status: "connected", source: "simconnect" }) }), "fsuipc").status).toBe("connected");
+    const portOnly = item(baseFacts({ settings: { ...baseFacts().settings, simLink: "fsuipc" }, fsuipcPortOpen: true }), "fsuipc");
+    expect(portOnly.status).toBe("connected");
+  });
+
+  it("fsuipc: SimConnect is the default and needs no install, so it never cries for FSUIPC", () => {
+    const waiting = item(baseFacts(), "fsuipc");
+    expect(waiting.status).toBe("optional");
+    expect(waiting.detail).toMatch(/SimConnect/);
+    expect(waiting.detail).toMatch(/built into MSFS/i);
+    expect(waiting.detail).not.toMatch(/SimConnect alone is not enough/i);
   });
 
   it("fsuipc: distinguishes a switched-off link, a missing bridge and an undetected FSUIPC7", () => {
-    const off = item(baseFacts({ settings: { ...baseFacts().settings, simulatorEnabled: false } }), "fsuipc");
+    const fsuipcLink = { ...baseFacts().settings, simLink: "fsuipc" as const };
+    const off = item(baseFacts({ settings: { ...fsuipcLink, simulatorEnabled: false } }), "fsuipc");
     expect(off.status).toBe("needs_setup");
     expect(off.detail).toMatch(/switched off/i);
-    const detected = item(baseFacts({ fsuipcInstalled: true }), "fsuipc");
+    const detected = item(baseFacts({ settings: fsuipcLink, fsuipcInstalled: true }), "fsuipc");
     expect(detected.detail).toMatch(/detected/i);
     expect(detected.detail).toMatch(/WebSocket Server/i);
-    const missing = item(baseFacts(), "fsuipc");
+    const missing = item(baseFacts({ settings: fsuipcLink }), "fsuipc");
     expect(missing.status).toBe("needs_setup");
-    expect(missing.detail).toMatch(/SimConnect alone is not enough/i);
+    expect(missing.detail).toMatch(/SimConnect in Settings/i);
   });
 
   it("charts: explains the Navigraph licensing limit instead of pretending an API exists", () => {

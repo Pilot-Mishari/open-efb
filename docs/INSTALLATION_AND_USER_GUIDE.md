@@ -21,7 +21,7 @@
 |---|---|---|
 | Windows 10 or 11, 64-bit | Yes | The installer is built for x64 only and refuses to run on 32-bit Windows or on Windows older than build 10240 (the first Windows 10 build), with an error message instead of a broken install. |
 | Microsoft Flight Simulator 2020 or 2024 | Optional | Open EFB also runs without a simulator. |
-| FSUIPC7 **and** the FSUIPC WebSocket Server | Only for live flight data | Not needed to open the EFB automatically. Neither is bundled with Open EFB; install them from their authors. Check their own pages for licence terms and for the versions that support MSFS 2024. |
+| FSUIPC7 **and** the FSUIPC WebSocket Server | Optional | Not needed for live data: the default link is SimConnect, which ships with MSFS 2020 and 2024. Only required if you switch the live data link to FSUIPC in Settings. Neither is bundled with Open EFB; install them from their authors and check their own pages for licence terms and for the versions that support MSFS 2024. |
 | Node.js, .NET or other runtimes | No | Electron brings everything the app needs. |
 | Wi-Fi or Ethernet network | Only for tablets | The tablet and the PC must be on the same local network. |
 | Internet | Optional | Needed for SimBrief, VATSIM data, chart websites and map tiles. |
@@ -98,7 +98,7 @@ The rows and what to do:
 | **SimBrief flight plan** | Loads your latest OFP with the saved username. | Type your SimBrief **username or numeric Pilot ID** (from your SimBrief profile) and press **Save**. A free account is enough; **no password is ever requested or stored**. |
 | **GSX Pro ground services** | Whether FSDreamTeam GSX Pro's remote-control server answers, and whether GSX is installed at all. | If GSX is installed but not answering: start MSFS with GSX and enable the remote control server in GSX's own settings, then **Test**. If GSX is not installed the row is *Unavailable* and nothing is needed. |
 | **MSFS 2020 / 2024 simulator link** | Registry and folder detection of Steam and Microsoft Store installs, plus whether live data is flowing. | Nothing to fill in; install MSFS if you want live flight data. |
-| **Live data bridge (FSUIPC)** | Whether FSUIPC7 is present and its WebSocket server answers on port 2048 (default). | Install FSUIPC7 **and** Paul Henty's FSUIPC WebSocket Server, start both with the simulator, then **Test**. SimConnect alone is not enough. |
+| **Live flight data** | Which link is carrying data: SimConnect (built into MSFS) or the FSUIPC WebSocket Server. | Start MSFS and load a flight — SimConnect needs nothing installed. If the link is set to FSUIPC, install FSUIPC7 **and** Paul Henty's FSUIPC WebSocket Server, start both with the simulator, then **Test**. |
 | **Navigation charts** | Which chart provider the settings select. | Optional: **Open charts** shows ChartFox or Navigraph. Navigraph charts open navigraph.com in a new tab under your own account — Navigraph licenses its Charts API only for EFBs inside the simulator's virtual cockpit, so this standalone EFB does not embed them; no key or approval is needed for the website. |
 | **VATSIM radio and flight board** | Reaches VATSIM's public feed. | Nothing: no account, key or sign-up is needed. |
 
@@ -162,14 +162,13 @@ Open EFB checks the Windows process list (`tasklist`) for the simulator's progra
 **FSUIPC is not needed for this.** Detection does not talk to FSUIPC, so it works even if FSUIPC7 is missing. A running simulator program does not mean the sim is fully loaded, so connecting to flight data is handled separately (below).
 
 ### Live flight data
-Telemetry comes from the **FSUIPC WebSocket Server** talking to FSUIPC7. Open EFB connects to it on this PC at `ws://127.0.0.1:2048/fsuipc/` (port **2048** by default).
+Telemetry comes from **SimConnect**, the interface Microsoft ships with MSFS 2020 and MSFS 2024. Open EFB talks to the simulator over it directly on this PC, so there is nothing to install and no second program to start.
 
 Setup, for both MSFS 2020 and MSFS 2024:
-1. Install FSUIPC7 for your simulator, and the FSUIPC WebSocket Server, from their authors. **[Unverified]** MSFS 2024 needs recent versions of both; check their release notes.
-2. Start MSFS, then FSUIPC7, then the WebSocket Server (start order is not enforced by Open EFB, which keeps retrying).
-3. Open EFB connects by itself. It retries with a growing delay (1 second up to 15 seconds), so it recovers whether it, FSUIPC or the simulator started first, and after a restart of any of them.
+1. Start MSFS and load a flight.
+2. Open EFB connects by itself. It retries with a growing delay (1 second up to 15 seconds), so it recovers whether the simulator or the EFB started first, and after a restart of either.
 
-Open EFB does not install, modify or configure FSUIPC and never overwrites its settings.
+**Optional: use FSUIPC instead.** Settings → Integrations → Simulator → **Live flight data link** has an **FSUIPC** option, which reads through the FSUIPC WebSocket Server on port **2048** (`ws://127.0.0.1:2048/fsuipc/`) instead. Choose it only if your setup already runs FSUIPC7 and that server; neither is bundled with Open EFB. Open EFB does not install, modify or configure FSUIPC and never overwrites its settings.
 
 ### Confirm that it works
 On the dashboard (**Home**), the **Simulator** card shows one of:
@@ -177,9 +176,9 @@ On the dashboard (**Home**), the **Simulator** card shows one of:
 | Message | Meaning |
 |---|---|
 | Simulator link is off | Turned off in settings (`simulatorEnabled`). |
-| Connecting to the simulator | Trying to reach the WebSocket Server. |
-| Simulator not connected | The WebSocket Server cannot be reached. The text below it says to start FSUIPC7 and its WebSocket Server. |
-| Connected, waiting for the simulator | Connected to FSUIPC but no flight data yet (the sim may still be loading). |
+| Connecting to the simulator | Trying to reach the simulator over SimConnect (or over the WebSocket Server if that link is selected). |
+| Simulator not connected | The simulator is not running, or the selected link could not reach it — the text below it says what to start. |
+| Connected, waiting for the simulator | Connected, but no flight data yet (the flight may still be loading). |
 | Data is stale | Data stopped arriving. |
 | Simulator connected | Live data is flowing. |
 

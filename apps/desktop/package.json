@@ -17,6 +17,7 @@
   "dependencies": {
     "@open-efb/server": "workspace:*",
     "@open-efb/shared": "workspace:*",
+    "electron-updater": "^6.8.11",
     "qrcode": "1.5.4"
   },
   "devDependencies": {
