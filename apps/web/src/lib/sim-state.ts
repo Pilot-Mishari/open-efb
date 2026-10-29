@@ -29,7 +29,7 @@ function useNow(everyMs: number): number {
   return now;
 }
 
-const SOURCE = { fsuipc: "FSUIPC7 WebSocket server", mock: "Mock (simulated)" } as const;
+const SOURCE = { simconnect: "SimConnect (built into MSFS)", fsuipc: "FSUIPC7 WebSocket server", mock: "Mock (simulated)" } as const;
 
 /** One place that decides what the simulator link currently means, so every screen says the same thing. */
 export function useSimState(): SimState {

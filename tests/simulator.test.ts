@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { EventEmitter } from "node:events";
 import type { AddressInfo } from "node:net";
 import { WebSocketServer, type WebSocket as ServerSocket } from "ws";
-import { FsuipcWsAdapter, MockAdapter, comActiveMhz, convertRaw, looksLikeNoSimData, OFFSETS } from "../packages/simulator/src";
+import type { Telemetry } from "../packages/shared/src";
+import { FsuipcWsAdapter, MockAdapter, SimConnectAdapter, comActiveMhz, convertRaw, looksLikeNoSimData, OFFSETS } from "../packages/simulator/src";
 
 const TWO_32 = 2 ** 32;
 const GOOD = { latitude: 25.25, longitude: 55.36, altitude: 3048 * TWO_32, groundSpeed: 100 * 65536, indicatedAirspeed: 250 * 128, heading: TWO_32 / 2, verticalSpeed: 5 * 256, outsideAirTemp: -54 * 256, onGround: 0 };
@@ -216,5 +218,156 @@ describe("MockAdapter", () => {
     const t = m.getTelemetrySnapshot();
     expect(t.source).toBe("mock");
     expect(t.detail).toMatch(/SIMULATED/);
+  });
+});
+
+/** A stand-in for the SimConnect handle: records what the adapter asked for and can emit samples. */
+class FakeHandle extends EventEmitter {
+  definitions: unknown[][] = [];
+  requests: unknown[][] = [];
+  closed = false;
+  addToDataDefinition(...args: unknown[]): number {
+    this.definitions.push(args);
+    return 1;
+  }
+  requestDataOnSimObject(...args: unknown[]): number {
+    this.requests.push(args);
+    return 1;
+  }
+  close(): void {
+    this.closed = true;
+  }
+}
+
+/** Reads values in the fixed order the adapter defines them. */
+function reader(values: number[]): { readFloat64: () => number; readInt32: () => number } {
+  let i = 0;
+  return {
+    readFloat64: () => values[i++] ?? Number.NaN,
+    readInt32: () => values[i++] ?? 0,
+  };
+}
+
+/** lat, lon, alt, gs, ias, hdg, vs, oat, onGround, com1, com2 */
+const SAMPLE = [25.25, 55.36, 12_000, 250, 240, 270, 1_500, -40, 0, 118.9, 121.5];
+
+describe("SimConnectAdapter", () => {
+  it("defines the MSFS variables in order, requests them every frame and publishes the sample", async () => {
+    const handle = new FakeHandle();
+    const a = new SimConnectAdapter({ rateHz: 10, connect: async () => ({ handle }) });
+    cleanup.push(() => a.disconnect());
+    await a.connect();
+    await until(() => a.getStatus() === "connected");
+
+    expect(handle.definitions.map((d) => d[1])).toEqual([
+      "PLANE LATITUDE",
+      "PLANE LONGITUDE",
+      "PLANE ALTITUDE",
+      "GROUND SPEED",
+      "AIRSPEED INDICATED",
+      "PLANE HEADING DEGREES TRUE",
+      "VERTICAL SPEED",
+      "AMBIENT TEMPERATURE",
+      "SIM ON GROUND",
+      "COM ACTIVE FREQUENCY:1",
+      "COM ACTIVE FREQUENCY:2",
+    ]);
+    // request id, definition id, user object, period — nothing is ever written to the simulator.
+    expect(handle.requests).toEqual([[0, 0, expect.any(Number), 2]]);
+
+    handle.emit("simObjectData", { requestID: 0, data: reader(SAMPLE) });
+    const t = a.getTelemetrySnapshot();
+    expect(t.source).toBe("simconnect");
+    expect(t.status).toBe("connected");
+    expect(t.values.latitudeDeg).toBe(25.25);
+    expect(t.values.altitudeFt).toBe(12_000);
+    expect(t.values.groundSpeedKt).toBe(250);
+    expect(t.values.headingTrueDeg).toBe(270);
+    expect(t.values.onGround).toBe(false);
+    expect(t.values.com1ActiveMhz).toBe(118.9);
+    expect(t.values.com2ActiveMhz).toBe(121.5);
+  });
+
+  it("shows a wait, not 0/0 coordinates, before a flight is loaded", async () => {
+    const handle = new FakeHandle();
+    let clock = 10_000;
+    const a = new SimConnectAdapter({ rateHz: 10, now: () => clock, connect: async () => ({ handle }) });
+    cleanup.push(() => a.disconnect());
+    await a.connect();
+    await until(() => a.getStatus() === "connected");
+
+    handle.emit("simObjectData", { requestID: 0, data: reader(SAMPLE) });
+    clock += 1_000; // outside the configured rate, so the empty reading really is applied
+    handle.emit("simObjectData", { requestID: 0, data: reader([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]) });
+    const t = a.getTelemetrySnapshot();
+    expect(t.status).toBe("connected");
+    expect(t.detail).toMatch(/Waiting for the simulator/);
+    expect(t.values.latitudeDeg).toBeNull(); // the previous position is dropped, not left on screen
+    expect(t.values.altitudeFt).toBeNull();
+  });
+
+  it("drops samples that arrive faster than the configured rate", async () => {
+    const handle = new FakeHandle();
+    let clock = 1_000;
+    const a = new SimConnectAdapter({ rateHz: 1, now: () => clock, connect: async () => ({ handle }) });
+    cleanup.push(() => a.disconnect());
+    await a.connect();
+    await until(() => a.getStatus() === "connected");
+
+    handle.emit("simObjectData", { requestID: 0, data: reader(SAMPLE) });
+    expect(a.getTelemetrySnapshot().values.latitudeDeg).toBe(25.25);
+
+    clock += 100; // well inside the 1000 ms the rate allows
+    handle.emit("simObjectData", { requestID: 0, data: reader([1, 2, 3, 4, 5, 6, 7, 8, 1, 9, 10]) });
+    expect(a.getTelemetrySnapshot().values.latitudeDeg).toBe(25.25);
+  });
+
+  it("reports the failure, retries, and reconnects when the simulator quits", async () => {
+    const handle = new FakeHandle();
+    let calls = 0;
+    const a = new SimConnectAdapter({
+      rateHz: 5,
+      reconnectMinMs: 60,
+      connect: async () => {
+        calls++;
+        if (calls === 1) throw new Error("no simulator running");
+        return { handle };
+      },
+    });
+    cleanup.push(() => a.disconnect());
+    await a.connect();
+    await until(() => calls >= 2);
+    expect(a.getStatus()).toBe("connected");
+
+    handle.emit("quit");
+    await until(() => handle.closed && a.getStatus() === "disconnected");
+    expect(a.getTelemetrySnapshot().values.latitudeDeg).toBeNull();
+
+    await until(() => calls >= 3);
+    expect(a.getStatus()).toBe("connected");
+  });
+
+  it("stops cleanly and does not reconnect after disconnect()", async () => {
+    const handle = new FakeHandle();
+    let calls = 0;
+    const a = new SimConnectAdapter({
+      rateHz: 5,
+      reconnectMinMs: 10,
+      connect: async () => {
+        calls++;
+        if (calls === 1) throw new Error("no simulator running");
+        return { handle };
+      },
+    });
+    await a.connect();
+    await until(() => calls >= 2 && a.getStatus() === "connected");
+    await a.disconnect();
+    const after = calls;
+    await new Promise((r) => setTimeout(r, 150));
+    expect(calls).toBe(after);
+    expect(a.getStatus()).toBe("disconnected");
+    const t: Telemetry = a.getTelemetrySnapshot();
+    expect(t.source).toBe("simconnect");
+    expect(t.values.latitudeDeg).toBeNull();
   });
 });

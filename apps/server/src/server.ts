@@ -81,8 +81,9 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
     },
   };
   const sim = new SimulatorManager(settings, hub, logger, opts.simulator ?? (process.env.OPEN_EFB_SIM?.trim() === "mock" ? "mock" : "fsuipc"));
-  // GSX is a local, read-only side link. It never fails the EFB: with GSX absent the manager just
-  // parks on an "unavailable" status and everything else keeps running.
+  // GSX is a local side link with one user-triggered command (`service.trigger`). It never fails
+  // the EFB: with GSX absent the manager just parks on an "unavailable" status and everything else
+  // keeps running.
   const gsx = new GsxManager({ hub, logger, locator: opts.gsxLocator ?? localGsxLocator() });
   hub.extraGreeting = () => gsx.message();
   const app = createApp({
@@ -95,6 +96,7 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
     auth,
     telemetry: () => sim.message(),
     gsx: () => gsx.status(),
+    gsxTrigger: (service) => gsx.trigger(service),
     detectSims: opts.detectSims,
     detectFsuipc: opts.detectFsuipc,
     probePort: opts.probePort,

@@ -16,6 +16,13 @@ win:
     - target: nsis
       arch: [x64]
   icon: build/icon.png
+# Where the built-in updater looks for new releases: the GitHub Releases page of this project.
+# electron-builder writes app-update.yml from this block and publishes latest.yml with each build,
+# so the installed app can check for an update on launch without any manual step.
+publish:
+  provider: github
+  owner: Pilot-Mishari
+  repo: open-efb
 nsis:
   oneClick: false
   perMachine: false

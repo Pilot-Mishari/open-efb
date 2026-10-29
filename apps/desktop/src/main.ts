@@ -1,5 +1,6 @@
 import path from "node:path";
-import { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, session, shell, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, session, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from "electron";
+import { autoUpdater } from "electron-updater";
 import { toDataURL } from "qrcode";
 import { createEfbServer } from "@open-efb/server";
 import type { ControlState } from "./control/types";
@@ -9,6 +10,10 @@ const isDev = !app.isPackaged;
 /** Set by the Windows login item so the EFB starts in the tray without opening a window. */
 const startHidden = process.argv.includes("--background");
 const EXTERNAL_HOSTS = new Set(["chartfox.org", "www.chartfox.org", "navigraph.com", "www.navigraph.com", "charts.navigraph.com"]);
+/** How often a running app re-checks the Releases page. One check on launch, then hourly. */
+const UPDATE_CHECK_MS = 60 * 60 * 1000;
+/** Set once an update has been downloaded and is waiting to be installed. */
+let updateReady: string | null = null;
 let win: BrowserWindow | null = null;
 let control: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -160,6 +165,49 @@ function showControl(): void {
   void control.loadFile(path.join(__dirname, "control.html"));
 }
 
+/**
+ * Checks the project's GitHub Releases for a newer version on every launch (and then hourly),
+ * downloads it in the background and installs it when the app quits. The user is only interrupted
+ * once, when the download is finished, and can also restart from the tray menu. A failed check
+ * (no internet, private repo, offline release feed) is logged and otherwise ignored — it never
+ * affects the rest of the app.
+ */
+function startUpdateChecks(): void {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-available", (info) => server.logger.info({ version: info.version }, "update available, downloading"));
+  autoUpdater.on("update-downloaded", (info) => {
+    updateReady = info.version;
+    refreshTray();
+    void dialog
+      .showMessageBox({
+        type: "info",
+        buttons: ["Restart now", "Install when I quit"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Open EFB update ready",
+        message: `Open EFB ${info.version} is downloaded and ready to install.`,
+        detail: "It installs itself when you quit Open EFB, or you can restart now. Your settings are kept.",
+      })
+      .then((choice) => {
+        if (choice.response === 0) {
+          updateReady = null;
+          try {
+            autoUpdater.quitAndInstall();
+          } catch (err) {
+            server.logger.error({ err }, "restart for update failed");
+          }
+        }
+      });
+  });
+  autoUpdater.on("error", (err) => server.logger.debug({ err }, "update check failed"));
+  const check = () => void autoUpdater.checkForUpdates().catch(() => undefined);
+  check();
+  const timer = setInterval(check, UPDATE_CHECK_MS);
+  timer.unref();
+}
+
 function buildTray(): void {
   tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
   tray.setToolTip("Open EFB");
@@ -174,6 +222,23 @@ function buildTray(): void {
         { label: a.running ? `Server running at ${serverUrl}` : "Server stopped", enabled: false },
         { label: `Tablet access: ${a.lanEnabled ? `on, ${a.clients.filter((c) => c.connected).length} connected` : "off"}`, enabled: false },
         { label: `Simulator: ${simStatus()}`, enabled: false },
+        ...(updateReady
+          ? ([
+              { label: `Update ${updateReady} ready to install`, enabled: false },
+              {
+                label: "Restart and update now",
+                click: () => {
+                  updateReady = null;
+                  try {
+                    autoUpdater.quitAndInstall();
+                  } catch (err) {
+                    server.logger.error({ err }, "restart for update failed");
+                  }
+                },
+              },
+              { type: "separator" as const },
+            ] as MenuItemConstructorOptions[])
+          : []),
         { type: "separator" },
         { label: "Open the EFB when MSFS starts", type: "checkbox", checked: st.autoLaunchOnSimulator, click: (i) => void server.settings.update({ autoLaunchOnSimulator: i.checked }) },
         { label: "Start Open EFB with Windows", type: "checkbox", checked: st.startWithWindows, enabled: app.isPackaged, click: (i) => void server.settings.update({ startWithWindows: i.checked }) },
@@ -247,6 +312,7 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
     buildTray();
+    startUpdateChecks();
     if (!startHidden) createWindow(serverUrl);
   });
 
