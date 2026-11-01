@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import { WebSocket, WebSocketServer } from "ws";
 import type { Logger } from "pino";
-import { GsxStatusSchema, emptyGsxStatus } from "../packages/shared/src";
+import { GsxStatusSchema, GsxTriggerResultSchema, emptyGsxStatus } from "../packages/shared/src";
 import { GsxManager, GsxState, localGsxLocator, parseRemotePort, pushbackDirections } from "../apps/server/src/gsx";
 import { ClientHub } from "../apps/server/src/hub";
 import { createEfbServer, type EfbServer } from "../apps/server/src";
@@ -207,6 +207,8 @@ describe("GSX connection", () => {
   let received: string[];
   let clients: Set<WebSocket>;
   let snapshotOnConnect: unknown;
+  /** Test hook: turns a command the manager sent into the answer the fake GSX sends back. */
+  let answerCommands: ((msg: Record<string, unknown>) => Record<string, unknown> | null) | null = null;
   const managers: GsxManager[] = [];
 
   beforeEach(async () => {
@@ -214,11 +216,23 @@ describe("GSX connection", () => {
     clients = new Set();
     managers.length = 0;
     snapshotOnConnect = SNAPSHOT;
+    answerCommands = null;
     wss = new WebSocketServer({ host: "127.0.0.1", port: 0 });
     wss.on("connection", (socket) => {
       clients.add(socket);
       socket.on("close", () => clients.delete(socket));
-      socket.on("message", (data) => received.push(data.toString()));
+      socket.on("message", (data) => {
+        const text = data.toString();
+        received.push(text);
+        let parsed: Record<string, unknown> | null = null;
+        try {
+          parsed = JSON.parse(text) as Record<string, unknown>;
+        } catch {
+          parsed = null;
+        }
+        const answer = parsed && parsed.type === "command" && answerCommands ? answerCommands(parsed) : null;
+        if (answer) socket.send(JSON.stringify(answer));
+      });
       socket.send(JSON.stringify(HELLO));
       const kick = setInterval(() => {
         if (received.some((m) => m.includes('"subscribe"'))) {
@@ -245,6 +259,7 @@ describe("GSX connection", () => {
       logger: silent,
       locator: { installed: () => true, port: () => port },
       stateRefreshMs: 50,
+      commandTimeoutMs: 250,
     });
     managers.push(m);
     return m;
@@ -321,6 +336,76 @@ describe("GSX connection", () => {
     await m.stop();
     expect(m.status().connection).toBe("unavailable");
   });
+
+  /* ------------------------------------------------------------ service control */
+
+  const connected = async (): Promise<GsxManager> => {
+    const m = manager();
+    m.start();
+    await waitFor(() => m.status().connection === "connected");
+    return m;
+  };
+
+  it("sends service.trigger and reports GSX's own confirmation", async () => {
+    answerCommands = (msg) => ({ v: 1, type: "result", ts: 9, id: msg.id as string, ok: true });
+    const m = await connected();
+    const result = await m.trigger("Boarding");
+    expect(result).toEqual({ ok: true, code: null, message: null });
+    const command = received.find((msg) => msg.includes("service.trigger"));
+    expect(command).toBeDefined();
+    expect(JSON.parse(command!)).toMatchObject({ type: "command", verb: "service.trigger", args: { service: "Boarding" } });
+    // Nothing else may ever be sent: no settings, no menus, no gate changes.
+    expect(received.every((msg) => !msg.includes("settings.set") && !msg.includes("menu.pick") && !msg.includes("gate.select"))).toBe(true);
+    await m.stop();
+  });
+
+  it("passes GSX's refusal straight through instead of claiming success", async () => {
+    answerCommands = (msg) => ({
+      v: 1,
+      type: "result",
+      ts: 9,
+      id: msg.id as string,
+      ok: false,
+      error: { code: "not_available", message: "Service cannot run in this state" },
+    });
+    const m = await connected();
+    expect(await m.trigger("Catering")).toEqual({ ok: false, code: "not_available", message: "Service cannot run in this state" });
+    await m.stop();
+  });
+
+  it("reports a refusal that carries no reason as rejected, not as success", async () => {
+    answerCommands = (msg) => ({ v: 1, type: "result", ts: 9, id: msg.id as string, ok: false });
+    const m = await connected();
+    expect(await m.trigger("Refueling")).toEqual({ ok: false, code: "rejected", message: null });
+    await m.stop();
+  });
+
+  it("times out instead of hanging when GSX never answers", async () => {
+    answerCommands = () => null;
+    const m = await connected();
+    expect(await m.trigger("Departure")).toEqual({ ok: false, code: "timeout", message: expect.any(String) });
+    await m.stop();
+  });
+
+  it("refuses to claim a command was sent while GSX is not connected", async () => {
+    const m = manager();
+    m.start();
+    const result = await m.trigger("Boarding");
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("not_connected");
+    await m.stop();
+  });
+
+  it("fails an in-flight command when the GSX connection drops", async () => {
+    answerCommands = () => null;
+    const m = await connected();
+    const pending = m.trigger("Boarding");
+    for (const c of clients) c.terminate();
+    const result = await pending;
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("not_connected");
+    await m.stop();
+  });
 });
 
 /* --------------------------------------------------------------------- HTTP API */
@@ -360,5 +445,18 @@ describe("GET /api/gsx", () => {
   it("keeps serving normally when GSX is absent", async () => {
     expect((await request(port, "GET", "/api/health")).status).toBe(200);
     expect((await request(port, "GET", "/api/telemetry")).status).toBe(200);
+  });
+
+  it("refuses a service name GSX does not have", async () => {
+    const r = await request(port, "POST", "/api/gsx/trigger", { body: { service: "Refuel" } });
+    expect(r.status).toBe(400);
+    expect(r.body).toEqual({ error: "invalid_service" });
+  });
+
+  it("answers honestly when GSX is not installed instead of pretending it worked", async () => {
+    const r = await request(port, "POST", "/api/gsx/trigger", { body: { service: "Boarding" } });
+    expect(r.status).toBe(200);
+    expect(GsxTriggerResultSchema.parse(r.body)).toEqual({ ok: false, code: "not_connected", message: expect.any(String) });
+    expect(JSON.stringify(r.body)).not.toMatch(/AppData|Virtuali|Couatl|Program Files/);
   });
 });

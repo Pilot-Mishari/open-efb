@@ -155,6 +155,18 @@ export const GsxMessageSchema = z.object({
 });
 export type GsxMessage = z.infer<typeof GsxMessageSchema>;
 
+/**
+ * Answer to "ask GSX to start this service" (the `service.trigger` command of its Remote API).
+ * `code` is GSX's own error code or a local one ("not_connected", "timeout") — never invented
+ * wording, so the screen can show exactly what GSX said.
+ */
+export const GsxTriggerResultSchema = z.object({
+  ok: z.boolean(),
+  code: z.string().nullable(),
+  message: z.string().nullable(),
+});
+export type GsxTriggerResult = z.infer<typeof GsxTriggerResultSchema>;
+
 /** A status with nothing connected yet, used before the first handshake and by tests. */
 export function emptyGsxStatus(connection: GsxConnection, detail: string | null = null): GsxStatus {
   return {

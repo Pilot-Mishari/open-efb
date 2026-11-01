@@ -138,10 +138,22 @@ const simulatorItem = (f: SetupFacts): SetupItem => {
 };
 
 const fsuipcItem = (f: SetupFacts): SetupItem => {
+  const title = "Live flight data";
+  // SimConnect is the default link and ships with MSFS 2020/2024: when it is flowing, the row is
+  // connected and says so, with no FSUIPC involved.
+  if (f.telemetry.status === "connected" && f.telemetry.source === "simconnect") {
+    return {
+      id: "fsuipc",
+      title,
+      status: "connected",
+      detail: "Live data is arriving over SimConnect, which is built into MSFS 2020 and 2024 — nothing else to install.",
+      action: "test",
+    };
+  }
   if (f.telemetry.status === "connected" && f.telemetry.source === "fsuipc") {
     return {
       id: "fsuipc",
-      title: "Live data bridge (FSUIPC)",
+      title,
       status: "connected",
       detail: `Live data is arriving through the FSUIPC WebSocket server on port ${f.settings.fsuipcPort}.`,
       action: "test",
@@ -150,28 +162,40 @@ const fsuipcItem = (f: SetupFacts): SetupItem => {
   if (!f.settings.simulatorEnabled) {
     return {
       id: "fsuipc",
-      title: "Live data bridge (FSUIPC)",
+      title,
       status: "needs_setup",
       detail: "Live flight data is switched off in Settings. Turn the simulator link on, then press Test.",
       action: "test",
     };
   }
-  if (f.fsuipcPortOpen) {
+  // The FSUIPC route is only chosen deliberately in Settings; it then has to be running.
+  if (f.settings.simLink === "fsuipc") {
+    if (f.fsuipcPortOpen) {
+      return {
+        id: "fsuipc",
+        title,
+        status: "connected",
+        detail: `The FSUIPC WebSocket server is answering on port ${f.settings.fsuipcPort}.`,
+        action: "test",
+      };
+    }
     return {
       id: "fsuipc",
-      title: "Live data bridge (FSUIPC)",
-      status: "connected",
-      detail: `The FSUIPC WebSocket server is answering on port ${f.settings.fsuipcPort}.`,
+      title,
+      status: "needs_setup",
+      detail: f.fsuipcInstalled
+        ? `FSUIPC7 was detected, but its WebSocket server is not answering on port ${f.settings.fsuipcPort}. Start FSUIPC7 and the FSUIPC WebSocket Server (a separate free program by Paul Henty) with the simulator, then press Test.`
+        : `Live flight data is set to the FSUIPC WebSocket Server, but neither FSUIPC7 nor its WebSocket Server was detected. Install both on the simulator PC and start them with MSFS, or switch the link back to SimConnect in Settings — SimConnect needs nothing installed.`,
       action: "test",
     };
   }
   return {
     id: "fsuipc",
-    title: "Live data bridge (FSUIPC)",
-    status: "needs_setup",
-    detail: f.fsuipcInstalled
-      ? `FSUIPC7 was detected, but its WebSocket server is not answering on port ${f.settings.fsuipcPort}. Start FSUIPC7 and the FSUIPC WebSocket Server (a separate free program by Paul Henty) with the simulator, then press Test.`
-      : "Live flight data needs FSUIPC7 (free for MSFS) and Paul Henty's FSUIPC WebSocket Server. Neither was detected here — install both on the simulator PC, start them with MSFS, then press Test. SimConnect alone is not enough: this EFB reads data through the FSUIPC WebSocket server.",
+    title,
+    status: f.fsuipcPortOpen ? "connected" : "optional",
+    detail: f.fsuipcPortOpen
+      ? `The FSUIPC WebSocket server is answering on port ${f.settings.fsuipcPort}.`
+      : "Live data arrives over SimConnect, which is built into MSFS 2020 and 2024 — nothing to install. It starts as soon as the simulator is running a flight; start MSFS, then press Test. (Settings can use the FSUIPC WebSocket Server instead if your setup already runs it.)",
     action: "test",
   };
 };

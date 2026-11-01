@@ -19,6 +19,12 @@ const fields = {
   chartsProvider: z.enum(["chartfox", "navigraph"]),
   simulatorEnabled: z.boolean(),
   fsuipcPort: z.number().int().min(1024).max(65535),
+  /**
+   * Which link carries live data:
+   * "auto" (default) and "simconnect" use SimConnect, which ships with MSFS 2020/2024 — nothing
+   * to install. "fsuipc" uses the optional FSUIPC WebSocket Server for setups that already run it.
+   */
+  simLink: z.enum(["auto", "simconnect", "fsuipc"]),
   autoLaunchOnSimulator: z.boolean(),
   startWithWindows: z.boolean(),
   /** True once the first-launch setup wizard was finished (or deliberately skipped for good). */
@@ -42,6 +48,7 @@ export const SettingsSchema = z.object({
   units: UnitsSchema.default(() => UnitsSchema.parse({})),
   simulatorEnabled: fields.simulatorEnabled.default(true),
   fsuipcPort: fields.fsuipcPort.default(DEFAULT_FSUIPC_PORT),
+  simLink: fields.simLink.default("auto"),
   autoLaunchOnSimulator: fields.autoLaunchOnSimulator.default(true),
   startWithWindows: fields.startWithWindows.default(false),
   setupCompleted: fields.setupCompleted.default(false),

@@ -2,9 +2,10 @@ import { GSX_SERVICE_STATES, emptyGsxStatus, type GsxService, type GsxServiceId,
 import { useGsxFeed } from "./live-link";
 
 /**
- * GSX Pro's read-only ground-service state for the whole EFB. There is no polling: the server
- * pushes an update over the existing live socket whenever GSX itself changes, and this hook only
- * replays the latest one. With GSX absent every value stays null/empty and nothing else breaks.
+ * GSX Pro's ground-service state for the whole EFB. Every value comes from GSX itself — there is
+ * no polling, no derivation: the server pushes an update over the existing live socket whenever
+ * GSX changes, and this hook only replays the latest one. With GSX absent every value stays
+ * null/empty and nothing else breaks. (Starting a service is a separate call, `api.gsxTrigger`.)
  */
 export function useGsx(): GsxStatus {
   const { message } = useGsxFeed();
@@ -42,6 +43,16 @@ export function activeService(services: readonly GsxService[]): { id: GsxService
   if (active) return { id: active.id, service: active };
   const requested = services.find((s) => s.stateRaw === 4 || s.stateRaw === 7);
   return requested ? { id: requested.id, service: requested } : null;
+}
+
+/**
+ * True only when GSX itself says this service may be started right now: its own `canTrigger` flag,
+ * and a state that is not already queued or running (codes 4/5/7). The EFB therefore never offers
+ * to start something under way, and never offers a "stop" it cannot verify GSX would honour.
+ */
+export function canStartService(service: GsxService | null | undefined): boolean {
+  if (!service || !service.canTrigger) return false;
+  return service.stateRaw === 0 || service.stateRaw === 1 || service.stateRaw === 6;
 }
 
 /** Connection wording shown in the EFB, in one place so every screen says the same thing. */

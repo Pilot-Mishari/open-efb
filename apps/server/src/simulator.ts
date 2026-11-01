@@ -1,5 +1,5 @@
 import type { Settings, Telemetry, TelemetryMessage } from "@open-efb/shared";
-import { FsuipcWsAdapter, MockAdapter, emptyTelemetry, type SimulatorAdapter } from "@open-efb/simulator";
+import { FsuipcWsAdapter, MockAdapter, SimConnectAdapter, emptyTelemetry, type AdapterLogger, type SimulatorAdapter } from "@open-efb/simulator";
 import type { Logger } from "pino";
 import type { ClientHub } from "./hub";
 import type { SettingsStore } from "./settings-store";
@@ -23,7 +23,7 @@ export class SimulatorManager {
   ) {
     this.off = settings.onChange((next, prev) => {
       if (!this.running) return;
-      if (next.simulatorEnabled !== prev.simulatorEnabled || next.fsuipcPort !== prev.fsuipcPort) void this.restart();
+      if (next.simulatorEnabled !== prev.simulatorEnabled || next.fsuipcPort !== prev.fsuipcPort || next.simLink !== prev.simLink) void this.restart();
       else if (next.telemetryRateHz !== prev.telemetryRateHz) this.adapter?.setRateHz(next.telemetryRateHz);
     });
     hub.greeting = () => this.message();
@@ -65,11 +65,22 @@ export class SimulatorManager {
       return;
     }
     const log = { debug: (o: object, m?: string) => this.logger.debug(o, m), info: (o: object, m?: string) => this.logger.info(o, m), warn: (o: object, m?: string) => this.logger.warn(o, m) };
-    const adapter = this.mode === "mock" ? new MockAdapter(s.telemetryRateHz) : new FsuipcWsAdapter({ port: s.fsuipcPort, rateHz: s.telemetryRateHz, logger: log });
+    const adapter = this.createAdapter(s, log);
     if (this.mode === "mock") this.logger.warn({}, "OPEN_EFB_SIM=mock: telemetry is SIMULATED, not from a flight simulator");
     this.adapter = adapter;
     this.unsubscribe = adapter.subscribeToTelemetry(() => this.hub.broadcast(this.message()));
     await adapter.connect();
+  }
+
+  /**
+   * Picks the live-data link from settings. The default (and "simconnect") is SimConnect, which
+   * ships with MSFS 2020/2024 — no FSUIPC and no WebSocket Server to install. "fsuipc" keeps the
+   * existing route for setups that already run it.
+   */
+  private createAdapter(s: Settings, log: AdapterLogger): SimulatorAdapter {
+    if (this.mode === "mock") return new MockAdapter(s.telemetryRateHz);
+    if (s.simLink === "fsuipc") return new FsuipcWsAdapter({ port: s.fsuipcPort, rateHz: s.telemetryRateHz, logger: log });
+    return new SimConnectAdapter({ rateHz: s.telemetryRateHz, logger: log });
   }
 
   private async detach(): Promise<void> {

@@ -1,14 +1,21 @@
+import fs from "node:fs";
 import path from "node:path";
-import { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, session, shell, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, Menu, Tray, dialog, ipcMain, nativeImage, session, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from "electron";
+import { autoUpdater } from "electron-updater";
 import { toDataURL } from "qrcode";
 import { createEfbServer } from "@open-efb/server";
 import type { ControlState } from "./control/types";
 import { SIM_LABEL, SimWatcher, listProcessNames } from "./sim-watch";
+import { hideSplashAfter, showSplash } from "./splash";
 
 const isDev = !app.isPackaged;
 /** Set by the Windows login item so the EFB starts in the tray without opening a window. */
 const startHidden = process.argv.includes("--background");
 const EXTERNAL_HOSTS = new Set(["chartfox.org", "www.chartfox.org", "navigraph.com", "www.navigraph.com", "charts.navigraph.com"]);
+/** How often a running app re-checks the Releases page. One check on launch, then hourly. */
+const UPDATE_CHECK_MS = 60 * 60 * 1000;
+/** Set once an update has been downloaded and is waiting to be installed. */
+let updateReady: string | null = null;
 let win: BrowserWindow | null = null;
 let control: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -26,6 +33,17 @@ const server = createEfbServer({
   webDir,
   version: app.getVersion(),
 });
+
+/** The diagnostic log the server writes; the tray can export a copy of this file. */
+const logFile = path.join(app.getPath("userData"), "data", "logs", "open-efb.log");
+
+// A throw in the main process used to surface as Electron's native "A JavaScript error occurred
+// in the main process" dialog — one dialog per failure, so a repeating trigger (a frame-rate
+// telemetry callback, sockets closing during quit) piled them up faster than they could be
+// dismissed and only Task Manager could end the app. Everything is written to the log file
+// instead, where "Export logs…" in the tray menu can share it.
+process.on("uncaughtException", (err) => server.logger.error({ err }, "uncaught exception in main process"));
+process.on("unhandledRejection", (reason) => server.logger.error({ err: reason }, "unhandled rejection in main process"));
 
 const watcher = new SimWatcher({
   list: listProcessNames,
@@ -160,39 +178,133 @@ function showControl(): void {
   void control.loadFile(path.join(__dirname, "control.html"));
 }
 
+/**
+ * Checks the project's GitHub Releases for a newer version on every launch (and then hourly),
+ * downloads it in the background and installs it when the app quits. The user is only interrupted
+ * once, when the download is finished, and can also restart from the tray menu. A failed check
+ * (no internet, private repo, offline release feed) is logged and otherwise ignored — it never
+ * affects the rest of the app.
+ *
+ * Returns a promise that settles when the first check is done, so the launch splash can stay up
+ * for it (clamped to 3–5 seconds by hideSplashAfter). */
+function startUpdateChecks(): Promise<void> {
+  if (!app.isPackaged) return Promise.resolve();
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-available", (info) => server.logger.info({ version: info.version }, "update available, downloading"));
+  autoUpdater.on("update-downloaded", (info) => {
+    updateReady = info.version;
+    refreshTray();
+    void dialog
+      .showMessageBox({
+        type: "info",
+        buttons: ["Restart now", "Install when I quit"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Open EFB update ready",
+        message: `Open EFB ${info.version} is downloaded and ready to install.`,
+        detail: "It installs itself when you quit Open EFB, or you can restart now. Your settings are kept.",
+      })
+      .then((choice) => {
+        if (choice.response === 0) {
+          updateReady = null;
+          try {
+            autoUpdater.quitAndInstall();
+          } catch (err) {
+            server.logger.error({ err }, "restart for update failed");
+          }
+        }
+      });
+  });
+  autoUpdater.on("error", (err) => server.logger.debug({ err }, "update check failed"));
+  const check = () => autoUpdater.checkForUpdates().then(() => undefined, () => undefined);
+  const first = check();
+  const timer = setInterval(check, UPDATE_CHECK_MS);
+  timer.unref();
+  return first;
+}
+
 function buildTray(): void {
   tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
   tray.setToolTip("Open EFB");
   refreshTray = () => {
-    const a = server.access.state();
-    const st = server.settings.get();
-    tray?.setContextMenu(
-      Menu.buildFromTemplate([
-        { label: "Open EFB", click: () => showWindow() },
-        { label: "Connect a tablet\u2026", click: showControl },
-        { type: "separator" },
-        { label: a.running ? `Server running at ${serverUrl}` : "Server stopped", enabled: false },
-        { label: `Tablet access: ${a.lanEnabled ? `on, ${a.clients.filter((c) => c.connected).length} connected` : "off"}`, enabled: false },
-        { label: `Simulator: ${simStatus()}`, enabled: false },
-        { type: "separator" },
-        { label: "Open the EFB when MSFS starts", type: "checkbox", checked: st.autoLaunchOnSimulator, click: (i) => void server.settings.update({ autoLaunchOnSimulator: i.checked }) },
-        { label: "Start Open EFB with Windows", type: "checkbox", checked: st.startWithWindows, enabled: app.isPackaged, click: (i) => void server.settings.update({ startWithWindows: i.checked }) },
-        { type: "separator" },
-        {
-          label: a.running ? "Stop server" : "Start server",
-          click: async () => {
-            if (server.isRunning()) await server.stop();
-            else serverUrl = (await server.start()).url;
-            refreshTray();
-          },
-        },
-        { type: "separator" },
-        { label: "Quit", click: () => app.quit() },
-      ]),
-    );
+    try {
+      buildTrayMenu();
+    } catch (err) {
+      // The tray runs on every server/simulator change; a failed menu rebuild must never take
+      // the process down — keep the previous menu and record why.
+      server.logger.error({ err }, "tray menu refresh failed");
+    }
   };
   refreshTray();
   tray.on("click", () => showWindow());
+}
+
+function buildTrayMenu(): void {
+  const a = server.access.state();
+  const st = server.settings.get();
+  tray?.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open EFB", click: () => showWindow() },
+      { label: "Connect a tablet\u2026", click: showControl },
+      { type: "separator" },
+      { label: a.running ? `Server running at ${serverUrl}` : "Server stopped", enabled: false },
+      { label: `Tablet access: ${a.lanEnabled ? `on, ${a.clients.filter((c) => c.connected).length} connected` : "off"}`, enabled: false },
+      { label: `Simulator: ${simStatus()}`, enabled: false },
+      ...(updateReady
+        ? ([
+            { label: `Update ${updateReady} ready to install`, enabled: false },
+            {
+              label: "Restart and update now",
+              click: () => {
+                updateReady = null;
+                try {
+                  autoUpdater.quitAndInstall();
+                } catch (err) {
+                  server.logger.error({ err }, "restart for update failed");
+                }
+              },
+            },
+            { type: "separator" as const },
+          ] as MenuItemConstructorOptions[])
+        : []),
+      { type: "separator" },
+      { label: "Open the EFB when MSFS starts", type: "checkbox", checked: st.autoLaunchOnSimulator, click: (i) => void server.settings.update({ autoLaunchOnSimulator: i.checked }) },
+      { label: "Start Open EFB with Windows", type: "checkbox", checked: st.startWithWindows, enabled: app.isPackaged, click: (i) => void server.settings.update({ startWithWindows: i.checked }) },
+      { type: "separator" },
+      {
+        label: a.running ? "Stop server" : "Start server",
+        click: async () => {
+          if (server.isRunning()) await server.stop();
+          else serverUrl = (await server.start()).url;
+          refreshTray();
+        },
+      },
+      { type: "separator" },
+      { label: "Export logs\u2026", click: () => void exportLogs() },
+      { label: "Open log folder", click: () => void shell.openPath(path.dirname(logFile)) },
+      { type: "separator" },
+      { label: "Quit", click: () => app.quit() },
+    ]),
+  );
+}
+
+/** Lets the user grab a copy of the diagnostic log (which includes any captured main-process
+ * errors) to attach to a bug report, without having to find the AppData folder by hand. */
+async function exportLogs(): Promise<void> {
+  const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    title: "Export Open EFB logs",
+    defaultPath: path.join(app.getPath("documents"), `open-efb-logs-${stamp}.log`),
+    filters: [{ name: "Log file", extensions: ["log", "txt"] }],
+  });
+  if (canceled || !filePath) return;
+  try {
+    await fs.promises.copyFile(logFile, filePath);
+  } catch (err) {
+    server.logger.error({ err }, "log export failed");
+    dialog.showErrorBox("Could not export logs", `The log file could not be copied:\n\n${err instanceof Error ? err.message : String(err)}\n\nIt is at: ${logFile}`);
+  }
 }
 
 const fromControl = (e: IpcMainInvokeEvent): boolean => !!control && !control.isDestroyed() && e.sender === control.webContents;
@@ -207,6 +319,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
+    // Launch splash: the passcode photograph with a centred "Checking for updates…" box, up for
+    // the 3–5 seconds the first update check needs. Background launches stay silent.
+    const splash = startHidden ? null : showSplash(webDir);
+    const updateCheck = startUpdateChecks();
     session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
     ipcMain.handle("efb:server-status", () => ({ running: server.isRunning(), url: serverUrl }));
     ipcMain.handle("control:get", (e) => (fromControl(e) ? controlState() : null));
@@ -227,6 +343,7 @@ if (!app.requestSingleInstanceLock()) {
     try {
       serverUrl = (await server.start()).url;
     } catch (err) {
+      splash?.close();
       server.logger.error({ err }, "failed to start server");
       dialog.showErrorBox(
         "Open EFB could not start",
@@ -247,6 +364,7 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
     buildTray();
+    if (splash) await hideSplashAfter(splash, updateCheck);
     if (!startHidden) createWindow(serverUrl);
   });
 

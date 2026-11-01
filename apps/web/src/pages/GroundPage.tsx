@@ -1,12 +1,14 @@
-import { GSX_SERVICE_LABELS, GSX_SERVICE_ORDER, GSX_SERVICE_STATES, type GsxService } from "@open-efb/shared";
+import { useState } from "react";
+import { GSX_SERVICE_LABELS, GSX_SERVICE_ORDER, GSX_SERVICE_STATES, type GsxService, type GsxServiceId } from "@open-efb/shared";
 import { EmptyState, Panel } from "../components/Panel";
+import { api, describeError } from "../lib/api";
 import { ago } from "../lib/format";
-import { activeService, gsxConnectionLabel, serviceState, useGsx } from "../lib/gsx-state";
+import { activeService, canStartService, gsxConnectionLabel, serviceState, useGsx } from "../lib/gsx-state";
 
 /**
- * Ground services: a read-only mirror of GSX Pro. Every line on this screen is something GSX
- * itself sent over its Remote API — no status, count or percentage is ever derived, so a service
- * GSX has not reported simply says so instead of being guessed.
+ * Ground services from GSX Pro: its own status, plus the one control the EFB exposes — starting a
+ * service GSX itself says it may start. Every status line is something GSX sent; nothing is ever
+ * derived, and a refused or unanswered command is shown exactly as GSX reported it.
  */
 
 const TONE: Record<string, string> = {
@@ -17,9 +19,10 @@ const TONE: Record<string, string> = {
   Available: "border-line bg-panel text-text",
 };
 
-function ServiceTile({ service }: { service: GsxService }) {
+function ServiceTile({ service, busy, onStart }: { service: GsxService; busy: boolean; onStart: (id: GsxServiceId) => void }) {
   const state = serviceState(service) ?? "Unknown";
   const tone = TONE[state] ?? "border-line bg-panel text-muted";
+  const startable = canStartService(service);
   return (
     <div className={`flex min-h-32 flex-col justify-between rounded-2xl border p-4 ${tone}`}>
       <div>
@@ -29,6 +32,16 @@ function ServiceTile({ service }: { service: GsxService }) {
       {/* GSX's own wording, shown as-is and never parsed into a number. */}
       {service.progressText && <p className="text-base text-text/80">{service.progressText}</p>}
       {!service.progressText && service.operator && <p className="text-sm text-muted">{service.operator}</p>}
+      {startable && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onStart(service.id)}
+          className="mt-3 min-h-10 rounded-lg border border-teal/60 bg-teal/15 px-3 text-sm font-semibold uppercase tracking-[0.15em] text-text hover:bg-teal/30 disabled:opacity-60"
+        >
+          {busy ? "Sending…" : `Start ${GSX_SERVICE_LABELS[service.id].toLowerCase()}`}
+        </button>
+      )}
     </div>
   );
 }
@@ -44,9 +57,28 @@ function UnknownTile({ id }: { id: (typeof GSX_SERVICE_ORDER)[number] }) {
 
 export function GroundPage() {
   const gsx = useGsx();
+  const [busyId, setBusyId] = useState<GsxServiceId | null>(null);
+  const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const conn = gsxConnectionLabel(gsx);
   const current = activeService(gsx.services);
   const listed = new Set(gsx.services.map((s) => s.id));
+
+  const start = async (id: GsxServiceId) => {
+    setBusyId(id);
+    setNotice(null);
+    try {
+      const result = await api.gsxTrigger(id);
+      setNotice(
+        result.ok
+          ? { text: `${GSX_SERVICE_LABELS[id]} requested — GSX confirmed it.`, ok: true }
+          : { text: `GSX did not start ${GSX_SERVICE_LABELS[id].toLowerCase()}: ${result.message ?? result.code ?? "no reason given."}`, ok: false },
+      );
+    } catch (e) {
+      setNotice({ text: describeError(e), ok: false });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const dot = conn.tone === "ok" ? "bg-teal" : conn.tone === "warn" ? "bg-amber" : "bg-line";
 
@@ -55,7 +87,9 @@ export function GroundPage() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-instrument text-4xl font-semibold">Ground services</h1>
-          <p className="mt-1 text-muted">Live status from GSX Pro. Read-only — nothing here starts or stops a service.</p>
+          <p className="mt-1 text-muted">
+            Live status from GSX Pro. Start any service GSX says it can start; GSX has the final say and confirms every request.
+          </p>
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-2.5" role="status">
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
@@ -66,6 +100,12 @@ export function GroundPage() {
 
       {gsx.detail && gsx.connection !== "connected" && (
         <p className="rounded-xl border border-line bg-panel px-4 py-3 text-sm text-muted">{gsx.detail}</p>
+      )}
+
+      {notice && (
+        <p role="status" className={`rounded-xl border px-4 py-3 text-sm ${notice.ok ? "border-teal/50 bg-teal/10 text-text" : "border-amber/50 bg-amber/10 text-text"}`}>
+          {notice.text}
+        </p>
       )}
 
       {gsx.connection === "connected" && (
@@ -99,7 +139,7 @@ export function GroundPage() {
               <div className="grid grid-cols-3 gap-3">
                 {GSX_SERVICE_ORDER.map((id) =>
                   listed.has(id) ? (
-                    <ServiceTile key={id} service={gsx.services.find((s) => s.id === id)!} />
+                    <ServiceTile key={id} service={gsx.services.find((s) => s.id === id)!} busy={busyId === id} onStart={(s) => void start(s)} />
                   ) : (
                     <UnknownTile key={id} id={id} />
                   ),

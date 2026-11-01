@@ -65,9 +65,24 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
   const hub = new ClientHub(version);
   const isLocal = opts.isLocal ?? ((req: IncomingMessage) => isLoopback(req.socket.remoteAddress));
   const listeners = new Set<() => void>();
-  const emit = () => listeners.forEach((l) => l());
-  pairing.onChange(emit);
-  hub.onChange(emit);
+  /** True once dispose() has begun. WebSocket "close" events arrive late — after the database is
+   * already closed — and must not reach subscribers or the database any more. Without this flag
+   * they used to crash the host app with "database is not open" while quitting. */
+  let disposed = false;
+  /** Notifies every subscriber. One throwing subscriber is logged and cannot break the others or
+   * the event that triggered it (a WebSocket close handler, a settings change, ...). */
+  const emit = () => {
+    if (disposed) return;
+    for (const l of listeners) {
+      try {
+        l();
+      } catch (err) {
+        logger.error({ err }, "state change listener threw");
+      }
+    }
+  };
+  const offPairing = pairing.onChange(emit);
+  const offHub = hub.onChange(emit);
 
   const auth: AuthDeps = {
     sessions,
@@ -81,8 +96,9 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
     },
   };
   const sim = new SimulatorManager(settings, hub, logger, opts.simulator ?? (process.env.OPEN_EFB_SIM?.trim() === "mock" ? "mock" : "fsuipc"));
-  // GSX is a local, read-only side link. It never fails the EFB: with GSX absent the manager just
-  // parks on an "unavailable" status and everything else keeps running.
+  // GSX is a local side link with one user-triggered command (`service.trigger`). It never fails
+  // the EFB: with GSX absent the manager just parks on an "unavailable" status and everything else
+  // keeps running.
   const gsx = new GsxManager({ hub, logger, locator: opts.gsxLocator ?? localGsxLocator() });
   hub.extraGreeting = () => gsx.message();
   const app = createApp({
@@ -95,6 +111,7 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
     auth,
     telemetry: () => sim.message(),
     gsx: () => gsx.status(),
+    gsxTrigger: (service) => gsx.trigger(service),
     detectSims: opts.detectSims,
     detectFsuipc: opts.detectFsuipc,
     probePort: opts.probePort,
@@ -171,7 +188,13 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
       return { host: host!, port: port!, url: `http://localhost:${port}` };
     },
     async dispose() {
+      if (disposed) return;
       await stop();
+      // Detach every subscriber before the database closes: pending WebSocket "close" events
+      // still fire after this point and must not reach the tray or the control window.
+      disposed = true;
+      offPairing();
+      offHub();
       await sim.dispose()
       await gsx.stop();
       hub.dispose();
@@ -187,7 +210,7 @@ export function createEfbServer(opts: ServerOptions): EfbServer {
         localUrl: srv ? `http://localhost:${port}` : null,
         lanUrls: srv && lan() ? lanAddresses().map((ip) => `http://${ip}:${port}`) : [],
         pairing: pairing.current(),
-        clients: sessions.list().map((s) => ({ id: s.id, label: s.label, ip: s.ip, lastSeen: s.lastSeen, connected: hub.connectedSessions().has(s.id) })),
+        clients: disposed ? [] : sessions.list().map((s) => ({ id: s.id, label: s.label, ip: s.ip, lastSeen: s.lastSeen, connected: hub.connectedSessions().has(s.id) })),
       }),
       async setLan(enabled) {
         if (enabled === lan()) return;

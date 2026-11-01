@@ -9,24 +9,30 @@ import {
   type GsxService,
   type GsxServiceId,
   type GsxStatus,
+  type GsxTriggerResult,
 } from "@open-efb/shared";
 import type { Logger } from "pino";
 import type { ClientHub } from "./hub";
 
 /**
- * Read-only client for the FSDreamTeam GSX Pro Remote API (v2).
+ * Client for the FSDreamTeam GSX Pro Remote API (v2), read-only except for one command.
  *
  * GSX Pro hosts a WebSocket server on this computer (default 127.0.0.1:8744, overridable in GSX
  * Settings) and pushes its own state to any client that subscribes. That is the interface GSX
  * documents for third parties and the one other clients such as Fragtality/Any2GSX speak, and it
- * is the only thing this file talks to: there is no second simulator connection, no file scraping
- * of GSX logs, and no write command — the only outbound messages are `subscribe`, `unsubscribe`
- * and the read-only `state.get` refresh.
+ * is the only thing this file talks to: there is no second simulator connection and no file
+ * scraping of GSX logs.
+ *
+ * Outbound messages are `subscribe`, `unsubscribe`, the read-only `state.get` refresh, and
+ * `service.trigger` — the single control the EFB exposes, used by POST /api/gsx/trigger to start a
+ * ground service the user picked. It never changes a GSX setting and never touches GSX files.
  *
  * Wire contract, as verified against the reference client:
  *   server -> { v:1, type:"hello", protocol, engine, sim, gsxRunning, authRequired, capabilities[] }
  *   client -> { type:"subscribe", id:"subscribe", channels:[...] }
  *   server -> { type:"result", id:"subscribe", ok }
+ *   client -> { type:"command", id:"service.trigger.N", verb:"service.trigger", args:{ service } }
+ *   server -> { type:"result", id:"service.trigger.N", ok, error?{code,message} }
  *   server -> { type:"snapshot", state, handlerData, services, ... }      then `patch` deltas:
  *             { type:"patch", path:"/services", value:[...] }
  *   server -> { type:"event", topic, model?, gsxRunning? }
@@ -362,12 +368,16 @@ export interface GsxManagerOptions {
   stateRefreshMs?: number;
   /** Injected in tests so no real socket is opened. */
   connect?: (url: string) => WebSocket;
+  /** How long a `service.trigger` waits for GSX's answer. Injected by tests; 8 s by default. */
+  commandTimeoutMs?: number;
 }
 
 const BACKOFF_MS = [5_000, 10_000, 20_000, 40_000, 60_000];
 const IDLE_TIMEOUT_MS = 90_000;
 const PING_INTERVAL_MS = 30_000;
 const DEFAULT_STATE_REFRESH_MS = 30_000;
+/** How long a `service.trigger` waits for GSX's own confirmation before it is reported as failed. */
+const DEFAULT_COMMAND_TIMEOUT_MS = 8_000;
 
 /**
  * Owns the single connection to GSX (however many tablets are watching), reconnects with a capped
@@ -385,15 +395,20 @@ export class GsxManager {
   private refresh: NodeJS.Timeout | null = null;
   private lastFingerprint = "";
   private updatedAt: number | null = null;
+  /** Commands we sent and are waiting on, keyed by the command id GSX will echo back. */
+  private pending = new Map<string, (result: GsxTriggerResult) => void>();
+  private commandSeq = 0;
   private connection: GsxStatus["connection"];
   private detail: string | null;
   private readonly locator: GsxLocator;
   private readonly stateRefreshMs: number;
+  private readonly commandTimeoutMs: number;
 
   constructor(private readonly opts: GsxManagerOptions) {
     const locator = opts.locator ?? localGsxLocator();
     this.locator = locator;
     this.stateRefreshMs = opts.stateRefreshMs ?? DEFAULT_STATE_REFRESH_MS;
+    this.commandTimeoutMs = opts.commandTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
     this.connection = locator.installed() ? "connecting" : "unavailable";
     this.detail = locator.installed() ? "Looking for GSX Pro." : "GSX Pro is not installed on this computer.";
   }
@@ -409,6 +424,7 @@ export class GsxManager {
     this.running = false;
     this.clearTimers();
     this.subscribeSent = false;
+    this.flushPending("GSX link stopped before it answered.");
     const socket = this.socket;
     this.socket = null;
     this.state.reset();
@@ -432,6 +448,61 @@ export class GsxManager {
 
   message(): GsxMessage {
     return { type: "gsx", serverTime: Date.now(), gsx: this.status() };
+  }
+
+  /**
+   * Asks GSX to start one ground service (its `service.trigger` verb). This is the only command
+   * the EFB ever sends: no settings are written, no GSX files are touched, and anything GSX does
+   * not confirm is reported as a failure instead of being assumed to have worked.
+   */
+  async trigger(service: GsxServiceId): Promise<GsxTriggerResult> {
+    const socket = this.socket;
+    if (!socket || socket.readyState !== WebSocket.OPEN || this.connection !== "connected") {
+      return { ok: false, code: "not_connected", message: "GSX Pro is not connected." };
+    }
+    const id = `service.trigger.${++this.commandSeq}`;
+    const body = JSON.stringify({ type: "command", id, verb: "service.trigger", args: { service } });
+    return new Promise<GsxTriggerResult>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        resolve({ ok: false, code: "timeout", message: "GSX did not answer in time." });
+      }, this.commandTimeoutMs);
+      timer.unref?.();
+      this.pending.set(id, (result) => {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        resolve(result);
+      });
+      try {
+        this.opts.logger.info({ service }, "GSX service trigger requested");
+        socket.send(body);
+      } catch {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        resolve({ ok: false, code: "not_connected", message: "The GSX connection dropped." });
+      }
+    });
+  }
+
+  /** Resolves a waiting trigger when GSX answers with a `result` for that command id. */
+  private settle(raw: unknown): boolean {
+    if (typeof raw !== "object" || raw === null) return false;
+    const m = raw as { id?: unknown; ok?: unknown; error?: { code?: unknown; message?: unknown } | null };
+    if (typeof m.id !== "string" || typeof m.ok !== "boolean") return false;
+    const settle = this.pending.get(m.id);
+    if (!settle) return false;
+    const code = typeof m.error?.code === "string" && m.error.code.trim() ? m.error.code.trim() : m.ok ? null : "rejected";
+    const message = typeof m.error?.message === "string" && m.error.message.trim() ? m.error.message.trim() : null;
+    settle({ ok: m.ok, code, message });
+    return true;
+  }
+
+  /** Anything still waiting when the link drops fails honestly rather than hanging until timeout. */
+  private flushPending(detail: string): void {
+    if (this.pending.size === 0) return;
+    const waiting = [...this.pending.values()];
+    this.pending.clear();
+    for (const settle of waiting) settle({ ok: false, code: "not_connected", message: detail });
   }
 
   private open(): void {
@@ -470,6 +541,8 @@ export class GsxManager {
       } catch {
         return;
       }
+      // The answer to a command we sent is not a state message; settle it and stop here.
+      if (this.settle(decoded)) return;
       const changed = this.state.apply(decoded);
       this.updatedAt = Date.now();
       // "connected" means the socket is open *and* GSX completed the handshake — the one place
@@ -477,8 +550,8 @@ export class GsxManager {
       if (this.state.handshakeComplete && this.connection !== "connected") {
         this.setConnection("connected", null);
       }
-      // GSX waits for the client to subscribe after the handshake; this is the only state message
-      // we ever send besides a read-only state refresh.
+      // GSX waits for the client to subscribe after the handshake; `service.trigger` is only ever
+      // sent from `trigger()`, when the user asks for it — never on this path.
       if (this.state.handshakeComplete && !this.subscribeSent && socket.readyState === WebSocket.OPEN) {
         this.subscribeSent = true;
         socket.send(JSON.stringify({ type: "subscribe", id: "subscribe", channels: ["state", "prompts", "toasts"] }));
@@ -498,6 +571,7 @@ export class GsxManager {
       this.subscribeSent = false;
       this.state.reset();
       this.updatedAt = null;
+      this.flushPending("The GSX connection dropped before it answered.");
       if (!this.running) return;
       this.fail("GSX Pro is not answering. Start the simulator and GSX, and keep the Remote control server enabled in GSX Settings.");
     });

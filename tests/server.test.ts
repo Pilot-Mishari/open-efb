@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import type { Request, Response } from "express";
+import { WebSocket } from "ws";
 import { createEfbServer, type EfbServer } from "../apps/server/src";
 import { requireLoopback } from "../apps/server/src/guard";
 import { request, tmpDir } from "./helpers";
@@ -129,5 +130,32 @@ describe("persistence", () => {
     server = createEfbServer({ dataDir, port: 0, logToStdout: false });
     port = (await server.start()).port;
     expect((await request(port, "GET", "/api/settings")).body.theme).toBe("light");
+  });
+});
+
+describe("shutdown", () => {
+  it("does not crash when a connected client disconnects during dispose", async () => {
+    // Regression: WebSocket "close" events fired asynchronously after db.close() and
+    // crashed the host with "database is not open" while quitting from the tray
+    // (ClientHub.notify -> emit -> refreshTray -> access.state -> sessions.list).
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    await new Promise<void>((resolve, reject) => {
+      ws.once("open", () => resolve());
+      ws.once("error", reject);
+    });
+    // Mirrors the tray's refreshTray: an access listener that reads state() on every change.
+    let calls = 0;
+    const off = server.access.onChange(() => {
+      calls++;
+      server.access.state();
+    });
+    await server.dispose();
+    const afterDispose = calls;
+    // Give the late "close" events from the dropped sockets time to fire.
+    await new Promise((r) => setTimeout(r, 150));
+    off();
+    // No subscriber may be notified once the database is closed, and state() must stay safe.
+    expect(calls).toBe(afterDispose);
+    expect(server.access.state().clients).toEqual([]);
   });
 });

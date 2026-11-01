@@ -1,7 +1,9 @@
 import { z } from "zod";
 
-/** Where a telemetry stream comes from. "mock" is only ever used for development and must be labelled as simulated. */
-export const SimSourceSchema = z.enum(["fsuipc", "mock"]);
+/** Where a telemetry stream comes from. "simconnect" is the built-in MSFS link (nothing to install);
+ *  "fsuipc" is the optional FSUIPC WebSocket Server; "mock" is development only and must always be
+ *  labelled as simulated. */
+export const SimSourceSchema = z.enum(["simconnect", "fsuipc", "mock"]);
 export type SimSource = z.infer<typeof SimSourceSchema>;
 
 export const SimStatusSchema = z.enum(["disabled", "connecting", "connected", "disconnected"]);
