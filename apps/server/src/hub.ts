@@ -76,6 +76,9 @@ export class ClientHub {
 
   dispose(): void {
     clearInterval(this.timer);
+    // Late "close" events from the sockets terminated below still call notify(); with the
+    // listeners gone they cannot reach the app after its resources (the database) are closed.
+    this.listeners.clear();
     for (const ws of this.peers.keys()) ws.terminate();
     this.wss.close();
   }

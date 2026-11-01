@@ -60,6 +60,8 @@ export class SimConnectAdapter extends TelemetryEmitter implements SimulatorAdap
   private attempts = 0;
   private epoch = 0;
   private lastEmit = 0;
+  /** Consecutive unreadable samples; only the first is logged loudly so a bad frame cannot flood the log. */
+  private sampleErrors = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private readonly now: () => number;
   private readonly minMs: number;
@@ -125,7 +127,14 @@ export class SimConnectAdapter extends TelemetryEmitter implements SimulatorAdap
       }
       return;
     }
-    this.attach(opened.handle);
+    try {
+      this.attach(opened.handle);
+    } catch (err) {
+      // Registering the data definition can fail (simulator state, pipe gone); a throw here would
+      // reject the detached open() promise and surface as an unhandled rejection dialog.
+      this.opts.logger?.debug({ err }, "SimConnect attach failed");
+      this.drop(opened.handle, "The SimConnect link could not be set up. Reconnecting.");
+    }
   }
 
   private attach(handle: ConnectionHandle): void {
@@ -137,7 +146,15 @@ export class SimConnectAdapter extends TelemetryEmitter implements SimulatorAdap
 
     handle.on("simObjectData", (recv) => {
       if (this.handle !== handle || recv.requestID !== REQUEST_ID) return;
-      this.onSample(recv.data);
+      try {
+        this.onSample(recv.data);
+        this.sampleErrors = 0;
+      } catch (err) {
+        // Samples arrive at rendered-frame rate straight into this EventEmitter; a throw here
+        // would escape into the host process once per frame. One bad reading is dropped and
+        // logged instead — the first at warn so it is noticed, the rest quietly at debug.
+        this.opts.logger?.[this.sampleErrors++ === 0 ? "warn" : "debug"]({ err }, "dropped an unreadable SimConnect sample");
+      }
     });
     handle.on("quit", () => this.drop(handle, "The simulator closed."));
     handle.on("close", () => this.drop(handle, NO_SIM_DETAIL));
